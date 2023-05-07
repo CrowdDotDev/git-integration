@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+
+[project]
+name = "crowdgit"
+version = "0.0.1"
+description = "Crowd.dev git integration for the Linux Foundation"
+readme = "README.md"
+authors = [
+    { name = "Juan Reyero", email="juan@juanreyero.com" }
+]
+requires-python = ">=3.10"
+license = { file="LICENSE" }
+dependencies = [
+    "requests >= 2.28.2",
+    "tqdm",
+    "fuzzywuzzy",
+    "python-Levenshtein"
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: Other/Proprietary License",
+    "Operating System :: OS Independent",
+]
+
+[project.optional-dependencies]
+dev = [
+    "jedi >= 0.18.1",
+    "pylint >= 2.13.9",
+    "pytest >= 7.0.0",
+    "yapf >= 0.32.0"
+]
+
+[tool.pytest.ini_options]
+addopts = "--doctest-modules --ignore=setup.py --ignore=build --ignore=doc --ignore=flymake"
+pythonpath = [
+  "."
+]
