@@ -355,7 +355,10 @@ def get_new_commits(remote: str, local_dir: str = REPO_DIR) -> List[Dict]:
     insertions_deletions = get_insertions_deletions(repo_path, default_branch, new_only=True)
 
     if new_commits:
-        subprocess.run(['git', '-C', repo_path, 'merge', f'origin/{default_branch}'], check=True)
+        subprocess.run(['git', '-C', repo_path, 'merge', f'origin/{default_branch}'],
+                       check=True,
+                       stdout=subprocess.DEVNULL,
+                       stderr=subprocess.DEVNULL)
     else:
         logging.info('No new commits')
 

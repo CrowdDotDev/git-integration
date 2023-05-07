@@ -9,7 +9,7 @@ import logging
 import tqdm
 from fuzzywuzzy import process
 
-from crowdgit.repo import get_repo_name, get_new_commits
+from crowdgit.repo import get_repo_name, get_new_commits, REPO_DIR
 from crowdgit.activitymap import ActivityMap
 
 logging.basicConfig(level=logging.INFO)
@@ -80,6 +80,7 @@ def extract_activities(commit_message: List[str]) -> List[Dict[str, Dict[str, st
 
 def prepare_crowd_activities(remote: str,
                              commits: List[Dict] = None,
+                             local_dir: str = REPO_DIR,
                              verbose: bool = False) -> List[Dict]:
 
     def create_activity(commit: Dict,
@@ -109,7 +110,7 @@ def prepare_crowd_activities(remote: str,
     activities = []
 
     if commits is None:
-        commits = get_new_commits(remote)
+        commits = get_new_commits(remote, local_dir=local_dir)
 
     if verbose:
         commits_iter = tqdm.tqdm(commits, desc="Processing commits")
