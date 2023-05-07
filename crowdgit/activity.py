@@ -147,7 +147,7 @@ def prepare_crowd_activities(remote: str,
             activity_type = activity_type.lower().replace('-by', '') + '-commit'
 
             member = {
-                'userName': member_data['name'],
+                'username': member_data['name'],
                 'displayName': member_data['name'],
                 'emails': [member_data['email']]
             }
