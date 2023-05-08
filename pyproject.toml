@@ -15,7 +15,9 @@ dependencies = [
     "requests >= 2.28.2",
     "tqdm",
     "fuzzywuzzy",
-    "python-Levenshtein"
+    "python-Levenshtein",
+    "boto3",
+    "python-json-logger"
 ]
 classifiers = [
     "Programming Language :: Python :: 3",

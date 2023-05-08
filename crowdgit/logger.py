@@ -30,5 +30,5 @@ def get_logger(name):
         logHandler.setFormatter(formatter)
         logger.addHandler(logHandler)
         logger.propagate = False
-    
+
     return logger

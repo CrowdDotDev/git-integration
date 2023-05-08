@@ -4,15 +4,15 @@ import re
 import hashlib
 import time
 from typing import List, Dict
-import logging
 
 import tqdm
 from fuzzywuzzy import process
 
 from crowdgit.repo import get_repo_name, get_new_commits, REPO_DIR
 from crowdgit.activitymap import ActivityMap
+from crowdgit.logger import get_logger
 
-logging.basicConfig(level=logging.INFO)
+logger = get_logger(__name__)
 
 
 def match_activity_name(activity_name: str) -> str:
@@ -202,7 +202,7 @@ def main():
         output_data = activities_by_commit
 
     end_time = time.time()
-    logging.info('%d activities extracted in %d s (%.1f min)',
+    logger.info('%d activities extracted in %d s (%.1f min)',
                  len(output_data),
                  int(end_time - start_time),
                  (end_time - start_time) / 60)

@@ -5,11 +5,12 @@ import subprocess
 import time
 import re
 from typing import List, Optional, Dict
-import logging
 
 import crowdgit.errors as E
 
-logging.basicConfig(level=logging.INFO)
+from crowdgit.logger import get_logger
+
+logger = get_logger(__name__)
 
 REPO_DIR = '/data/repos'
 
@@ -106,18 +107,18 @@ def clone_repo(remote: str, local_dir: str) -> None:
         raise E.CrowdGitError(f'Error creating {local_dir}: not overwriting existing directory')
 
     try:
-        logging.info('Cloning %s to %s...', remote, local_dir)
+        logger.info('Cloning %s to %s...', remote, local_dir)
         start_time = time.time()
         subprocess.run(['git', 'clone', remote, local_repo],
                        check=True,
                        stdout=subprocess.DEVNULL,
                        stderr=subprocess.DEVNULL)
         end_time = time.time()
-        logging.info('Repository %s cloned successfully to %s in %d s (%.1f min)',
-                     remote,
-                     local_dir,
-                     int(end_time - start_time),
-                     (end_time - start_time) / 60)
+        logger.info('Repository %s cloned successfully to %s in %d s (%.1f min)',
+                    remote,
+                    local_dir,
+                    int(end_time - start_time),
+                    (end_time - start_time) / 60)
     except subprocess.CalledProcessError as e:
         raise E.GitRunError(remote, local_dir, e)
 
@@ -193,8 +194,8 @@ def get_commits(repo_path: str,
         commit_message = commit_lines[8:]
 
         if not (is_valid_commit_hash(commit_hash) and is_valid_datetime(commit_datetime)):
-            logging.error('Invalid commit data found: hash=%s, datetime=%s',
-                          commit_hash, commit_datetime)
+            logger.error('Invalid commit data found: hash=%s, datetime=%s',
+                         commit_hash, commit_datetime)
             bad_commits += 1
             continue
 
@@ -211,13 +212,13 @@ def get_commits(repo_path: str,
                         'is_merge_commit': is_merge_commit,
                         'message': commit_message})
 
-    logging.info('%d commits (%s) extracted from %s in %d s (%1.f min), %d bad commits',
-                 len(commits),
-                 'new only' if new_only else 'all',
-                 repo_path,
-                 int(end_time - start_time),
-                 (end_time - start_time) / 60,
-                 bad_commits)
+    logger.info('%d commits (%s) extracted from %s in %d s (%1.f min), %d bad commits',
+                len(commits),
+                'new only' if new_only else 'all',
+                repo_path,
+                int(end_time - start_time),
+                (end_time - start_time) / 60,
+                bad_commits)
 
     return commits
 
@@ -260,7 +261,7 @@ def get_insertions_deletions(repo_path: str,
     end_time = time.time()
 
     if not commits_output:
-        logging.info('No new commits')
+        logger.info('No new commits')
         return {}
 
     bad_commits = 0
@@ -274,7 +275,7 @@ def get_insertions_deletions(repo_path: str,
 
         commit_hash = commit_lines[0]
         if not is_valid_commit_hash(commit_hash):
-            logging.error('Invalid insertions/deletions hash found: hash=%s', commit_hash)
+            logger.error('Invalid insertions/deletions hash found: hash=%s', commit_hash)
             bad_commits += 1
             continue
 
@@ -295,7 +296,7 @@ def get_insertions_deletions(repo_path: str,
 
     end_time = time.time()
 
-    logging.info(
+    logger.info(
         'Changes for %d commits (%s) extracted from %s in %d s (%.1f min), %d bad commits',
         len(changes),
         'new only' if new_only else 'all',
@@ -360,7 +361,7 @@ def get_new_commits(remote: str, local_dir: str = REPO_DIR) -> List[Dict]:
                        stdout=subprocess.DEVNULL,
                        stderr=subprocess.DEVNULL)
     else:
-        logging.info('No new commits')
+        logger.info('No new commits')
 
     return _add_insertions_deletions(new_commits, insertions_deletions)
 # :/prompt:get-new-commits
