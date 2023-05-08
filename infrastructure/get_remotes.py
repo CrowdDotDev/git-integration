@@ -1,6 +1,6 @@
 import requests
 
-url = f"https://apptest.crowd.dev/api/tenant/{TENANT_ID}/git"
+url = f"https://{CROWD_HOST}/api/tenant/{TENANT_ID}/git"
 
 payload = {}
 headers = {
