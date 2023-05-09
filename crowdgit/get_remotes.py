@@ -22,14 +22,15 @@ through all of them and ingress them.
 """
 import os
 import requests
+import dotenv
 
 from crowdgit.ingress import SQS
 from crowdgit.logger import get_logger
-import dotenv
 
 logger = get_logger(__name__)
 
 dotenv.load_dotenv(".env")
+
 
 def get_remotes():
     url = f"https://{os.environ['CROWD_HOST']}/api/tenant/{os.environ['TENANT_ID']}/git"
@@ -56,6 +57,7 @@ def ingress_remotes():
     for remotes in remotes_dict.values():
         for remote in remotes:
             sqs.ingress_remote(remote)
+            return
 
 
 def main():

@@ -103,11 +103,12 @@ def clone_repo(remote: str, local_dir: str) -> None:
     :raise E.GitRunError: If there's an error running the 'git clone' command.
     """
     local_repo = get_local_repo(remote, local_dir)
+
     if os.path.exists(local_repo):
         raise E.CrowdGitError(f'Error creating {local_dir}: not overwriting existing directory')
 
     try:
-        logger.info('Cloning %s to %s...', remote, local_dir)
+        logger.info('Cloning %s to %s', remote, local_dir)
         start_time = time.time()
         subprocess.run(['git', 'clone', remote, local_repo],
                        check=True,
@@ -261,7 +262,6 @@ def get_insertions_deletions(repo_path: str,
     end_time = time.time()
 
     if not commits_output:
-        logger.info('No new commits')
         return {}
 
     bad_commits = 0
@@ -329,7 +329,6 @@ def get_new_commits(remote: str, local_dir: str = REPO_DIR) -> List[Dict]:
                              of the message.
     """
     repo_path = get_local_repo(remote, local_dir)
-    default_branch = get_default_branch(repo_path)
 
     def _add_insertions_deletions(commits: List,
                                   insertions_deletions: Dict) -> List[Dict]:
@@ -340,11 +339,13 @@ def get_new_commits(remote: str, local_dir: str = REPO_DIR) -> List[Dict]:
     if not os.path.exists(repo_path):
         # Clone the repo if it doesn't exist
         clone_repo(remote, local_dir)
+        default_branch = get_default_branch(repo_path)
         insertions_deletions = get_insertions_deletions(repo_path, default_branch)
 
         new_commits = _add_insertions_deletions(get_commits(repo_path, default_branch),
                                                 insertions_deletions)
         return new_commits
+
 
     # Fetch the remote changes without merging
     subprocess.run(['git', '-C', repo_path, 'fetch'],
@@ -352,6 +353,7 @@ def get_new_commits(remote: str, local_dir: str = REPO_DIR) -> List[Dict]:
                    stdout=subprocess.DEVNULL,
                    stderr=subprocess.DEVNULL)
 
+    default_branch = get_default_branch(repo_path)
     new_commits = get_commits(repo_path, default_branch, new_only=True)
     insertions_deletions = get_insertions_deletions(repo_path, default_branch, new_only=True)
 

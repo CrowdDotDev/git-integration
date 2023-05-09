@@ -57,26 +57,30 @@ class SQS:
             list: List of SQS send message responses
         """
 
+        operation = "upsert_activities_with_members"
+
+        def get_body_json(chunk):
+            return json.dumps({'tenant_id': os.environ['TENANT_ID'],
+                               'operation': operation,
+                               'records': chunk}, default=string_converter)
+
+        def get_body_size(chunk):
+            return len(get_body_json(chunk).encode('utf-8'))
+
         def create_chunks(lst):
-            MAX_PAYLOAD_SIZE = 255 * 1024  # 255 KiB in bytes
+            MAX_PAYLOAD_SIZE = 255 * 1024  # 256 KiB in bytes, -1 KiB for margin
             chunk = []
-            chunk_size = 0
 
             for record in lst:
-                record_size = len(json.dumps(record, default=string_converter).encode('utf-8'))
-
-                if chunk_size + record_size > MAX_PAYLOAD_SIZE:
+                if get_body_size(chunk + [record]) >= MAX_PAYLOAD_SIZE:
                     yield chunk
                     chunk = [record]
-                    chunk_size = record_size
                 else:
                     chunk.append(record)
-                    chunk_size += record_size
 
             if chunk:
                 yield chunk
 
-        operation = "upsert_activities_with_members"
         platform = "git"
 
         responses = []
@@ -85,9 +89,7 @@ class SQS:
             deduplication_id = str(uuid())
             message_id = f"{os.environ['TENANT_ID']}-{operation}-{platform}-{deduplication_id}"
 
-            body = json.dumps({'tenant_id': os.environ['TENANT_ID'],
-                               'operation': operation,
-                               'records': chunk}, default=string_converter)
+            body = get_body_json(chunk)
 
             response = self.sqs.send_message(
                 QueueUrl=self.sqs_url,
