@@ -57,7 +57,6 @@ def ingress_remotes():
     for remotes in remotes_dict.values():
         for remote in remotes:
             sqs.ingress_remote(remote)
-            return
 
 
 def main():

@@ -12,7 +12,8 @@ from crowdgit.logger import get_logger
 
 logger = get_logger(__name__)
 
-REPO_DIR = '/data/repos'
+DEFAULT_REPO_DIR = 'repos'
+REPO_DIR = os.environ.get('REPO_DIR', DEFAULT_REPO_DIR)
 
 
 def get_repo_name(remote: str) -> str:
@@ -108,6 +109,9 @@ def clone_repo(remote: str, local_dir: str) -> None:
         raise E.CrowdGitError(f'Error creating {local_dir}: not overwriting existing directory')
 
     try:
+        if not os.path.exists(local_dir):
+            os.makedirs(local_dir)
+
         logger.info('Cloning %s to %s', remote, local_dir)
         start_time = time.time()
         subprocess.run(['git', 'clone', remote, local_repo],
@@ -393,7 +397,9 @@ def main():
     get_new_commits_parser = subparsers.add_parser('get-new-commits')
     get_new_commits_parser.add_argument('remote', help='Remote repository URL.')
     get_new_commits_parser.add_argument('--local-dir', default=REPO_DIR,
-                                        help='Local directory to store the repository.')
+                                        help=('Local directory to store the repository. '
+                                              'Defaults to the REPO_DIR environment variable, '
+                                              f'or to "{DEFAULT_REPO_DIR}" if that is not set up'))
 
     parser.add_argument('--output', required=True, help='Output JSON file to store the results.')
 

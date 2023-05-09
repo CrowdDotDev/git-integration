@@ -29,15 +29,10 @@ class SQS:
     Class to handle SQS requests. Can send and receive messages.
     """
 
-    def __init__(self, local_dir=None):
+    def __init__(self):
         """
         Initialise class to handle SQS requests.
-
-        Args:
-            local_dir (str): local directory in which repos are stored.  Defaults to
-            ENV['REPO_DIR']
         """
-        self.local_dir = local_dir or os.environ['REPO_DIR']
         self.sqs_url = os.environ['SQS_ENDPOINT_URL']
 
         self.sqs = boto3.client("sqs",
@@ -103,7 +98,7 @@ class SQS:
         return responses
 
     def ingress_remote(self, remote):
-        self.send_messages(prepare_crowd_activities(remote, local_dir=self.local_dir))
+        self.send_messages(prepare_crowd_activities(remote))
 
     @staticmethod
     def make_id():
