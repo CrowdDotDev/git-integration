@@ -57,6 +57,7 @@ class SQS:
         def get_body_json(chunk):
             return json.dumps({'tenant_id': os.environ['TENANT_ID'],
                                'operation': operation,
+                               'type': 'db_operations',
                                'records': chunk}, default=string_converter)
 
         def get_body_size(chunk):
@@ -98,7 +99,7 @@ class SQS:
         return responses
 
     def ingress_remote(self, remote):
-        self.send_messages(prepare_crowd_activities(remote))
+        return self.send_messages(prepare_crowd_activities(remote))
 
     @staticmethod
     def make_id():
