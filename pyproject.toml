@@ -17,7 +17,8 @@ dependencies = [
     "fuzzywuzzy",
     "python-Levenshtein",
     "boto3",
-    "python-json-logger"
+    "python-json-logger",
+    "python-dotenv"
 ]
 classifiers = [
     "Programming Language :: Python :: 3",

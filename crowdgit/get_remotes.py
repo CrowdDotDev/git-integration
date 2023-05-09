@@ -25,9 +25,11 @@ import requests
 
 from crowdgit.ingress import SQS
 from crowdgit.logger import get_logger
+import dotenv
 
 logger = get_logger(__name__)
 
+dotenv.load_dotenv(".env")
 
 def get_remotes():
     url = f"https://{os.environ['CROWD_HOST']}/api/tenant/{os.environ['TENANT_ID']}/git"
