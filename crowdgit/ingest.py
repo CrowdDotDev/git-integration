@@ -114,12 +114,11 @@ class SQS:
             #                       'RetryAttempts': 0},
             #  'SequenceNumber': '18877781119960559616'}
             status_code = response['ResponseMetadata']['HTTPStatusCode']
-            if status_code != 200:
+            if status_code == 200:
+                responses.append(response)
+            else:
                 logger.error('Received a %d status code from SQS with %s',
                              status_code, body)
-                return responses
-
-            responses.append(response)
 
         return responses
 
