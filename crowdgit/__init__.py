@@ -15,3 +15,8 @@ def load_env():
 
     if os.path.exists(env_path):
         dotenv.load_dotenv(env_path)
+
+load_env()
+
+DEFAULT_REPO_DIR = 'repos'
+REPO_DIR = os.environ.get('REPO_DIR', DEFAULT_REPO_DIR)

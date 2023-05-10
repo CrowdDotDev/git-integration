@@ -13,15 +13,12 @@ from typing import List, Dict
 from uuid import uuid1 as uuid
 import boto3
 
+from crowdgit import REPO_DIR
 from crowdgit.get_remotes import get_remotes
 from crowdgit.activity import prepare_crowd_activities
+from crowdgit.repo import get_repo_name
+
 from crowdgit.logger import get_logger
-from crowdgit.repo import REPO_DIR, get_repo_name
-
-from crowdgit import load_env
-load_env()
-
-
 logger = get_logger(__name__)
 
 

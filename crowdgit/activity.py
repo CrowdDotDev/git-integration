@@ -8,10 +8,11 @@ from typing import List, Dict
 import tqdm
 from fuzzywuzzy import process
 
-from crowdgit.repo import get_repo_name, get_new_commits, REPO_DIR
+from crowdgit import REPO_DIR
+from crowdgit.repo import get_repo_name, get_new_commits
 from crowdgit.activitymap import ActivityMap
-from crowdgit.logger import get_logger
 
+from crowdgit.logger import get_logger
 logger = get_logger(__name__)
 
 
