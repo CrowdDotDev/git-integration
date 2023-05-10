@@ -9,11 +9,14 @@ import os
 import json
 from uuid import uuid1 as uuid
 import boto3
+import dotenv
 
 from crowdgit.activity import prepare_crowd_activities
 from crowdgit.logger import get_logger
 
 logger = get_logger(__name__)
+
+dotenv.load_dotenv(".env")
 
 
 def string_converter(o):
@@ -96,6 +99,8 @@ class SQS:
             )
             responses.append(response)
 
+        from pprint import pprint
+        pprint(responses)
         return responses
 
     def ingress_remote(self, remote):
