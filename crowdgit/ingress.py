@@ -81,7 +81,6 @@ class SQS:
                 yield chunk
 
         platform = "git"
-
         responses = []
 
         for chunk in create_chunks(records):
@@ -97,10 +96,28 @@ class SQS:
                 MessageGroupId=message_id,
                 MessageDeduplicationId=deduplication_id,
             )
+
+            # A response should be something like this:
+            #
+            # {'MD5OfMessageBody': '31d3385e45172c0b830b83b4cb8cd6e9',
+            #  'MessageId': '6506bf53-60aa-4f4b-bd88-c9065170d030',
+            #  'ResponseMetadata': {'HTTPHeaders': {'content-length': '431',
+            #                                       'content-type': 'text/xml',
+            #                                       'date': 'Wed, 10 May 2023 17:07:41 GMT',
+            #                                       'x-amzn-requestid':
+            #                                          'fbee9fd0-8041-5289-8ba3-c30551dc5ad3'},
+            #                       'HTTPStatusCode': 200,
+            #                       'RequestId': 'fbee9fd0-8041-5289-8ba3-c30551dc5ad3',
+            #                       'RetryAttempts': 0},
+            #  'SequenceNumber': '18877781119960559616'}
+            status_code = response['ResponseMetadata']['HTTPHeaders']['HTTPStatusCode']
+            if status_code != 200:
+                logger.error('Received a %d status code from SQS with %s',
+                             status_code, body)
+                return responses
+
             responses.append(response)
 
-        from pprint import pprint
-        pprint(responses)
         return responses
 
     def ingress_remote(self, remote):
