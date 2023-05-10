@@ -95,6 +95,7 @@ def prepare_crowd_activities(remote: str,
             'sourceParentId': source_parent_id,
             'platform': 'git',
             'channel': get_repo_name(remote),
+            'body': '\n'.join(commit['message']),
             'attributes': {
                 'insertions': commit['insertions'],
                 'deletions': commit['deletions'],
