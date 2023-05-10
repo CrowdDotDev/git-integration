@@ -22,6 +22,7 @@ import os
 import requests
 
 from crowdgit.logger import get_logger
+
 logger = get_logger(__name__)
 
 
@@ -44,8 +45,9 @@ def get_remotes(host, tenant_id, api_key):
 
 def main():
     from pprint import pprint
-    import dotenv
-    dotenv.load_dotenv(".env")
+    from crowdgit import load_env
+    load_env()
+
     pprint(get_remotes(os.environ['CROWD_HOST'],
                        os.environ['TENANT_ID'],
                        os.environ['CROWD_API_KEY']))

@@ -5,15 +5,16 @@ import subprocess
 import time
 import re
 from typing import List, Optional, Dict
-import dotenv
 
 import crowdgit.errors as E
 
 from crowdgit.logger import get_logger
+from crowdgit import load_env
+
 
 logger = get_logger(__name__)
+load_env()
 
-dotenv.load_dotenv(".env")
 
 DEFAULT_REPO_DIR = 'repos'
 REPO_DIR = os.environ.get('REPO_DIR', DEFAULT_REPO_DIR)
