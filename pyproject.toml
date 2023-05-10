@@ -34,6 +34,9 @@ dev = [
     "yapf >= 0.32.0"
 ]
 
+[project.scripts]
+crowd-git-ingest = "crowdgit.ingest:main"
+
 [tool.pytest.ini_options]
 addopts = "--doctest-modules --ignore=setup.py --ignore=build --ignore=doc --ignore=flymake"
 pythonpath = [
