@@ -7,6 +7,9 @@ if it has not been cloned yet) and send them to SQS.
 """
 import os
 import json
+from datetime import datetime
+from typing import List, Dict
+
 from uuid import uuid1 as uuid
 import boto3
 
@@ -15,11 +18,11 @@ import dotenv
 from crowdgit.get_remotes import get_remotes
 from crowdgit.activity import prepare_crowd_activities
 from crowdgit.logger import get_logger
+from crowdgit.repo import REPO_DIR, get_repo_name
 
 dotenv.load_dotenv(".env")
 
 logger = get_logger(__name__)
-
 
 
 def string_converter(o):
@@ -47,15 +50,15 @@ class SQS:
                                 aws_secret_access_key=os.environ['SQS_SECRET_ACCESS_KEY'],
                                 aws_access_key_id=os.environ['SQS_ACCESS_KEY_ID'])
 
-    def send_messages(self, records):
+    def send_messages(self, records: List[Dict]) -> List[Dict]:
         """
         Send a message to the queue
 
         Args:
-            records (dict): message to be sent to the queue
+            records (List[Dict]): messages to be sent to the queue
 
         Returns:
-            list: List of SQS send message responses
+            list: List of SQS message responses
         """
 
         operation = "upsert_activities_with_members"
@@ -123,11 +126,40 @@ class SQS:
 
         return responses
 
-    def ingest_remote(self, remote):
-        return self.send_messages(prepare_crowd_activities(remote))
+    def ingest_remote(self, remote: str):
+        repo_name = get_repo_name(remote)
+        semaphore = os.path.join(REPO_DIR, 'running', repo_name)
+        if not os.path.exists(os.path.dirname(semaphore)):
+            os.makedirs(os.path.dirname(semaphore))
+
+        if os.path.exists(semaphore):
+            with open(semaphore, 'r', encoding='utf-8') as fin:
+                timestamp = fin.read().strip()
+            logger.info('Skipping %s, already running since %s', repo_name, timestamp)
+            return
+
+        with open(semaphore, 'w', encoding='utf-8') as fout:
+            logger.info('Setting semaphore in %s', semaphore)
+            fout.write(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+
+
+        try:
+            activities = prepare_crowd_activities(remote)
+        except:
+            logger.error('Failed trying to prepare activities for %s', remote)
+            os.remove(semaphore)
+            return
+
+        try:
+            self.send_messages(activities)
+        except:
+            logger.error('Failed trying to send messages for %s', remote)
+        finally:
+            if os.path.exists(semaphore):
+                os.remove(semaphore)
 
     @staticmethod
-    def make_id():
+    def make_id() -> str:
         return str(uuid())
 
 
