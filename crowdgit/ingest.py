@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""ingress endpoint.
+"""ingest endpoint.
 
 If called from the command line it expects one argument, the address of a remote.
 It will prepare the activites (which will include either cloning it to ENV[REPO_DIR]
@@ -9,14 +9,17 @@ import os
 import json
 from uuid import uuid1 as uuid
 import boto3
+
 import dotenv
 
+from crowdgit.get_remotes import get_remotes
 from crowdgit.activity import prepare_crowd_activities
 from crowdgit.logger import get_logger
 
+dotenv.load_dotenv(".env")
+
 logger = get_logger(__name__)
 
-dotenv.load_dotenv(".env")
 
 
 def string_converter(o):
@@ -110,7 +113,7 @@ class SQS:
             #                       'RequestId': 'fbee9fd0-8041-5289-8ba3-c30551dc5ad3',
             #                       'RetryAttempts': 0},
             #  'SequenceNumber': '18877781119960559616'}
-            status_code = response['ResponseMetadata']['HTTPHeaders']['HTTPStatusCode']
+            status_code = response['ResponseMetadata']['HTTPStatusCode']
             if status_code != 200:
                 logger.error('Received a %d status code from SQS with %s',
                              status_code, body)
@@ -120,7 +123,7 @@ class SQS:
 
         return responses
 
-    def ingress_remote(self, remote):
+    def ingest_remote(self, remote):
         return self.send_messages(prepare_crowd_activities(remote))
 
     @staticmethod
@@ -130,8 +133,22 @@ class SQS:
 
 def main():
     import sys
-    remote = sys.argv[1]
-    SQS().ingress_remote(remote)
+
+    sqs = SQS()
+
+    if len(sys.argv) == 2:
+        remote = sys.argv[1]
+        logger.info('Ingesting %s', remote)
+        sqs.ingest_remote(remote)
+    else:
+        remotes = get_remotes(os.environ['CROWD_HOST'],
+                              os.environ['TENANT_ID'],
+                              os.environ['CROWD_API_KEY'])
+
+        for remotes in remotes.values():
+            for remote in remotes:
+                logger.info('Ingesting %s', remote)
+                sqs.ingest_remote(remote)
 
 
 if __name__ == '__main__':

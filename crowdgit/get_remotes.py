@@ -17,28 +17,20 @@ Defines the get_remotes function, which return a dictionary of remotes of the fo
   ]
 }
 
-If called in the command line with the --ingress flag it will go
-through all of them and ingress them.
 """
 import os
 import requests
-import dotenv
 
-from crowdgit.ingress import SQS
 from crowdgit.logger import get_logger
-
 logger = get_logger(__name__)
 
-dotenv.load_dotenv(".env")
 
-
-def get_remotes():
-    url = f"https://{os.environ['CROWD_HOST']}/api/tenant/{os.environ['TENANT_ID']}/git"
+def get_remotes(host, tenant_id, api_key):
+    url = f"https://{host}/api/tenant/{tenant_id}/git"
 
     payload = {}
-    crowd_api_key = os.environ['CROWD_API_KEY']
     headers = {
-      'Authorization': f'Bearer {crowd_api_key}'
+      'Authorization': f'Bearer {api_key}'
     }
 
     response = requests.request("GET", url, headers=headers, data=payload, timeout=10)
@@ -50,30 +42,13 @@ def get_remotes():
     return {}
 
 
-def ingress_remotes():
-    remotes_dict = get_remotes()
-    sqs = SQS()
-
-    for remotes in remotes_dict.values():
-        for remote in remotes:
-            sqs.ingress_remote(remote)
-
-
 def main():
-    import argparse
     from pprint import pprint
-
-    parser = argparse.ArgumentParser(description='Process remotes from a GitHub repository')
-
-    # Add the flag for calling ingress_remotes
-    parser.add_argument('--ingress', action='store_true', help='Ingress remotes into the system')
-
-    args = parser.parse_args()
-
-    if args.ingress:
-        ingress_remotes()
-    else:
-        pprint(get_remotes())
+    import dotenv
+    dotenv.load_dotenv(".env")
+    pprint(get_remotes(os.environ['CROWD_HOST'],
+                       os.environ['TENANT_ID'],
+                       os.environ['CROWD_API_KEY']))
 
 
 if __name__ == '__main__':
