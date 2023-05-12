@@ -1,2 +1,2 @@
-0 * * * * /home/ubuntu/venv/cgit/bin/crowd-git-ingest >> /data/log/cron.log 2>&1
+0 * * * * /home/ubuntu/venv/cgit/bin/crowd-git-ingest >> /data/repos/log/cron.log 2>&1
 
