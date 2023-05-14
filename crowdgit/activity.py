@@ -8,7 +8,6 @@ from typing import List, Dict
 import tqdm
 from fuzzywuzzy import process
 
-from crowdgit import REPO_DIR
 from crowdgit.repo import get_repo_name, get_new_commits
 from crowdgit.activitymap import ActivityMap
 
@@ -81,7 +80,6 @@ def extract_activities(commit_message: List[str]) -> List[Dict[str, Dict[str, st
 
 def prepare_crowd_activities(remote: str,
                              commits: List[Dict] = None,
-                             local_dir: str = REPO_DIR,
                              verbose: bool = False) -> List[Dict]:
 
     def create_activity(commit: Dict,
@@ -112,7 +110,7 @@ def prepare_crowd_activities(remote: str,
     activities = []
 
     if commits is None:
-        commits = get_new_commits(remote, local_dir=local_dir)
+        commits = get_new_commits(remote)
 
     if verbose:
         commits_iter = tqdm.tqdm(commits, desc="Processing commits")

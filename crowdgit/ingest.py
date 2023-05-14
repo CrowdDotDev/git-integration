@@ -13,7 +13,7 @@ from typing import List, Dict
 from uuid import uuid1 as uuid
 import boto3
 
-from crowdgit import REPO_DIR
+from crowdgit import LOCAL_DIR
 from crowdgit.get_remotes import get_remotes
 from crowdgit.activity import prepare_crowd_activities
 from crowdgit.repo import get_repo_name
@@ -124,7 +124,7 @@ class SQS:
 
     def ingest_remote(self, remote: str):
         repo_name = get_repo_name(remote)
-        semaphore = os.path.join(REPO_DIR, 'running', repo_name)
+        semaphore = os.path.join(LOCAL_DIR, 'running', repo_name)
         if not os.path.exists(os.path.dirname(semaphore)):
             os.makedirs(os.path.dirname(semaphore))
 

@@ -6,11 +6,14 @@ import time
 import re
 from typing import List, Optional, Dict
 
-from crowdgit import REPO_DIR, DEFAULT_REPO_DIR
+from crowdgit import LOCAL_DIR, DEFAULT_LOCAL_DIR
 import crowdgit.errors as E
 
 from crowdgit.logger import get_logger
 logger = get_logger(__name__)
+
+DEFAULT_REPOS_DIR = os.path.join(DEFAULT_LOCAL_DIR, 'repos')
+REPOS_DIR = os.path.join(LOCAL_DIR, 'repos')
 
 
 def get_repo_name(remote: str) -> str:
@@ -47,17 +50,17 @@ def get_default_branch(repo_path: str) -> str:
         return 'master'
 
 
-def get_local_repo(remote: str, local_dir: str) -> str:
+def get_local_repo(remote: str, repos_dir: str) -> str:
     """ Get the local repository path.
 
     :param remote: The remote URL of the repository.
-    :param local_dir: The directory where the local repository is stored.
+    :param repos_dir: The directory where the local repository is stored.
     :return: The full path to the local repository.
 
     >>> get_local_repo("https://github.com/user/repo.git", "/path/to/local/dir")
     '/path/to/local/dir/repo'
     """
-    return os.path.join(local_dir, get_repo_name(remote))
+    return os.path.join(repos_dir, get_repo_name(remote))
 
 
 def is_valid_commit_hash(commit_hash: str) -> bool:
@@ -92,7 +95,7 @@ def is_valid_datetime(commit_datetime: str) -> bool:
         return False
 
 
-def clone_repo(remote: str, local_dir: str) -> None:
+def clone_repo(remote: str, repos_dir: str) -> None:
     """ Clone the given remote repository to the specified local directory.
 
     :param remote: The remote URL of the repository.
@@ -100,29 +103,29 @@ def clone_repo(remote: str, local_dir: str) -> None:
     :raise E.CrowdGitError: If there's an error creating the local directory.
     :raise E.GitRunError: If there's an error running the 'git clone' command.
     """
-    local_repo = get_local_repo(remote, local_dir)
+    repo_path = get_local_repo(remote, repos_dir)
 
-    if os.path.exists(local_repo):
-        raise E.CrowdGitError(f'Error creating {local_dir}: not overwriting existing directory')
+    if os.path.exists(repo_path):
+        raise E.CrowdGitError(f'Error creating {repo_path}: not overwriting existing directory')
 
     try:
-        if not os.path.exists(local_dir):
-            os.makedirs(local_dir)
+        if not os.path.exists(repo_path):
+            os.makedirs(repo_path)
 
-        logger.info('Cloning %s to %s', remote, local_dir)
+        logger.info('Cloning %s to %s', remote, repo_path)
         start_time = time.time()
-        subprocess.run(['git', 'clone', remote, local_repo],
+        subprocess.run(['git', 'clone', remote, repo_path],
                        check=True,
                        stdout=subprocess.DEVNULL,
                        stderr=subprocess.DEVNULL)
         end_time = time.time()
         logger.info('Repository %s cloned successfully to %s in %d s (%.1f min)',
                     remote,
-                    local_dir,
+                    repo_path,
                     int(end_time - start_time),
                     (end_time - start_time) / 60)
     except subprocess.CalledProcessError as e:
-        raise E.GitRunError(remote, local_dir, e)
+        raise E.GitRunError(remote, repo_path, e)
 
 
 def get_commits(repo_path: str,
@@ -310,10 +313,10 @@ def get_insertions_deletions(repo_path: str,
 
 
 # :prompt:get-new-commits
-def get_new_commits(remote: str, local_dir: str = REPO_DIR) -> List[Dict]:
+def get_new_commits(remote: str, repos_dir: str = REPOS_DIR) -> List[Dict]:
     """ Get new commits from the remote repository.
     :param remote: The remote repository URL.
-    :param local_dir: The local directory where repositories are stored (default: REPO_DIR).
+    :param repos_dir: The local directory where repositories are stored (default: REPOS_DIR).
     :return: A list of dictionaries with commit data and insertion/deletion information.
              Each dictionary contains the following keys:
                 - 'hash': The commit hash (str).
@@ -329,7 +332,7 @@ def get_new_commits(remote: str, local_dir: str = REPO_DIR) -> List[Dict]:
                 - 'message': The commit message as a list of strings, where each string is a line
                              of the message.
     """
-    repo_path = get_local_repo(remote, local_dir)
+    repo_path = get_local_repo(remote, repos_dir)
 
     def _add_insertions_deletions(commits: List,
                                   insertions_deletions: Dict) -> List[Dict]:
@@ -339,7 +342,7 @@ def get_new_commits(remote: str, local_dir: str = REPO_DIR) -> List[Dict]:
 
     if not os.path.exists(repo_path):
         # Clone the repo if it doesn't exist
-        clone_repo(remote, local_dir)
+        clone_repo(remote, repos_dir)
         default_branch = get_default_branch(repo_path)
         insertions_deletions = get_insertions_deletions(repo_path, default_branch)
 
@@ -393,10 +396,11 @@ def main():
 
     get_new_commits_parser = subparsers.add_parser('get-new-commits')
     get_new_commits_parser.add_argument('remote', help='Remote repository URL.')
-    get_new_commits_parser.add_argument('--local-dir', default=REPO_DIR,
-                                        help=('Local directory to store the repository. '
-                                              'Defaults to the REPO_DIR environment variable, '
-                                              f'or to "{DEFAULT_REPO_DIR}" if that is not set up'))
+    get_new_commits_parser.add_argument(
+        '--local-dir', default=REPOS_DIR,
+        help=('Local directory to store the repository. '
+              'Defaults to the REPOS_DIR environment variable, '
+              f'or to "{DEFAULT_REPOS_DIR}" if that is not set up'))
 
     parser.add_argument('--output', required=True, help='Output JSON file to store the results.')
 

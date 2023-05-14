@@ -18,5 +18,5 @@ def load_env():
 
 load_env()
 
-DEFAULT_REPO_DIR = 'repos'
-REPO_DIR = os.environ.get('REPO_DIR', DEFAULT_REPO_DIR)
+DEFAULT_LOCAL_DIR = 'local'
+LOCAL_DIR = os.environ.get('CROWD_LOCAL_DIR', DEFAULT_LOCAL_DIR)
