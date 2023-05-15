@@ -25,7 +25,7 @@ else
 fi
 
 # Move back into the git-integration folder
-cd ~/git-integration
+cd ~
 
 # Copy the dotenv-prod file as .env, replacing it if it already exists
 cp -f ../git-integration-environment/dotenv-prod .env
