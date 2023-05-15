@@ -28,7 +28,7 @@ fi
 cd ~
 
 # Copy the dotenv-prod file as .env, replacing it if it already exists
-cp -f ../git-integration-environment/dotenv-prod .env
+cp -f ~/git-integration-environment/dotenv-prod .env
 
 echo "The dotenv-prod file has been copied as .env"
 
