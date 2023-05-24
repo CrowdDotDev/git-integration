@@ -27,10 +27,16 @@ fi
 # Move back into the git-integration folder
 cd ~
 
-# Copy the dotenv-prod file as .env, replacing it if it already exists
-cp -f ~/git-integration-environment/dotenv-prod .env
-
-echo "The dotenv-prod file has been copied as .env"
+if [ "$1" == "prod" ]
+then
+  # Copy the dotenv-prod file as .env, replacing it if it already exists
+  cp -f ~/git-integration-environment/dotenv-prod .env
+  echo "The dotenv-prod file has been copied as .env"
+else
+  # Copy the dotenv-staging file as .env, replacing it if it already exists
+  cp -f ~/git-integration-environment/dotenv-staging .env
+  echo "The dotenv-staging file has been copied as .env"
+fi
 
 echo "Setting up cron job"
 # Create a temporary file
