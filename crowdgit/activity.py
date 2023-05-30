@@ -4,6 +4,7 @@ import re
 import hashlib
 import time
 from typing import List, Dict
+from datetime import datetime
 
 import tqdm
 from fuzzywuzzy import process
@@ -87,20 +88,24 @@ def prepare_crowd_activities(remote: str,
                         member: Dict,
                         source_id: str,
                         source_parent_id: str = '') -> Dict:
+
+        dt = datetime.fromisoformat(commit['datetime'])
+
         return {
             'type': activity_type,
             'timestamp': commit['datetime'],
             'sourceId': source_id,
             'sourceParentId': source_parent_id,
             'platform': 'git',
-            'channel': get_repo_name(remote),
+            'channel': remote,
             'body': '\n'.join(commit['message']),
             'attributes': {
                 'insertions': commit['insertions'],
+                'timezone': dt.tzname(),
                 'deletions': commit['deletions'],
                 'lines': commit['insertions'] - commit['deletions'],
                 'isMerge': commit['is_merge_commit'],
-                'isMainBranch': commit['is_main_branch']
+                'isMainBranch': True,
                 # 'branches': commit['branches']
             },
             'url': remote,
@@ -139,7 +144,7 @@ def prepare_crowd_activities(remote: str,
                             committer,
                             hashlib.sha1((commit['hash'] +
                                           'commited-commit' +
-                                          commit['committer_email']).encode('utf-8')).hexdigest()))
+                                          commit['committer_email']).encode('utf-8')).hexdigest(), commit['hash']))
 
         # Extract and add other activities
         extracted_activities = extract_activities(commit['message'])
