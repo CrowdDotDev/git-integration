@@ -93,14 +93,15 @@ def prepare_crowd_activities(remote: str,
             'sourceId': source_id,
             'sourceParentId': source_parent_id,
             'platform': 'git',
-            'channel': get_repo_name(remote),
+            'channel': remote,
             'body': '\n'.join(commit['message']),
             'attributes': {
                 'insertions': commit['insertions'],
+                'timezone': time.strftime('%z', time.localtime(commit['datetime'])),
                 'deletions': commit['deletions'],
                 'lines': commit['insertions'] - commit['deletions'],
                 'isMerge': commit['is_merge_commit'],
-                'isMainBranch': commit['is_main_branch']
+                'isMainBranch': True,
                 # 'branches': commit['branches']
             },
             'url': remote,
@@ -139,7 +140,7 @@ def prepare_crowd_activities(remote: str,
                             committer,
                             hashlib.sha1((commit['hash'] +
                                           'commited-commit' +
-                                          commit['committer_email']).encode('utf-8')).hexdigest()))
+                                          commit['committer_email']).encode('utf-8')).hexdigest(), commit['hash']))
 
         # Extract and add other activities
         extracted_activities = extract_activities(commit['message'])
