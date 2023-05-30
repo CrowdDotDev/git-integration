@@ -4,6 +4,7 @@ import re
 import hashlib
 import time
 from typing import List, Dict
+from datetime import datetime
 
 import tqdm
 from fuzzywuzzy import process
@@ -87,6 +88,9 @@ def prepare_crowd_activities(remote: str,
                         member: Dict,
                         source_id: str,
                         source_parent_id: str = '') -> Dict:
+
+        dt = datetime.fromisoformat(commit['datetime'])
+
         return {
             'type': activity_type,
             'timestamp': commit['datetime'],
@@ -97,7 +101,7 @@ def prepare_crowd_activities(remote: str,
             'body': '\n'.join(commit['message']),
             'attributes': {
                 'insertions': commit['insertions'],
-                'timezone': time.strftime('%z', time.localtime(commit['datetime'])),
+                'timezone': dt.tzname(),
                 'deletions': commit['deletions'],
                 'lines': commit['insertions'] - commit['deletions'],
                 'isMerge': commit['is_merge_commit'],

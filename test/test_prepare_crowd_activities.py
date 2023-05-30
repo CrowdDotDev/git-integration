@@ -7,7 +7,7 @@ from crowdgit.activity import prepare_crowd_activities
 commit_data = [
     {
         "hash": "123456",
-        "datetime": "2022-02-02",
+        "datetime": "2022-02-02T11:04:37+02:00",
         "author_name": "John Doe",
         "author_email": "john@example.com",
         "committer_name": "John Doe",
@@ -24,7 +24,7 @@ commit_data = [
     },
     {
         "hash": "789012",
-        "datetime": "2022-02-03",
+        "datetime": "2022-02-03T11:04:37+03:00",
         "author_name": "Jane Smith",
         "author_email": "jane@example.com",
         "committer_name": "John Doe",
@@ -46,6 +46,8 @@ def test_prepare_crowd_activities():
     activities = prepare_crowd_activities(remote, commit_data)
     activity_types = [(activity['type'], activity['member']['emails'][0])
                       for activity in activities]
+
+    assert activities[0]['attributes']['timezone'] == 'UTC+02:00'
 
     assert activity_types == [('authored-commit', 'john@example.com'),
                               ('committed-commit', 'john@example.com'),
