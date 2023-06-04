@@ -141,7 +141,8 @@ class SQS:
 
         try:
             activities = prepare_crowd_activities(remote)
-        except:
+        except Exception as e:
+            logger.error(e)
             logger.error('Failed trying to prepare activities for %s', remote)
             os.remove(semaphore)
             return
