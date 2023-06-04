@@ -108,7 +108,7 @@ def get_github_usernames(commit_sha: str, remote: str) -> list:
     Returns:
         list: List of GitHub contributors.
     """
-    repo_owner, repo_name = re.split('[:/]', remote)[-2:]
+    repo_owner, repo_name = re.split('[:/]', remote.split('.git', ''))[-2:]
     query = f"""
     {{
       repository(owner:"{repo_owner}" name:"{repo_name}") {{
