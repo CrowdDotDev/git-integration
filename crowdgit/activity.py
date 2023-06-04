@@ -16,6 +16,8 @@ import dotenv
 dotenv.load_dotenv('.env')
 TOKEN = os.environ['GITHUB_TOKEN']
 
+print(TOKEN)
+
 from crowdgit.repo import get_repo_name, get_new_commits
 from crowdgit.activitymap import ActivityMap
 
@@ -130,6 +132,7 @@ def get_github_usernames(commit_sha: str, remote: str) -> list:
     url = "https://api.github.com/graphql"
 
     response = requests.post(url, json={"query": query}, headers=headers)
+    print(response)
     result = response.json()
     commit_object = result.get('data', {}).get('repository', {}).get('object', {})
     contribs = commit_object.get('authors', {}).get('nodes', [])
