@@ -16,7 +16,7 @@ import dotenv
 dotenv.load_dotenv('.env')
 TOKEN = os.environ['GITHUB_TOKEN']
 
-print(TOKEN)
+print('token', TOKEN)
 
 from crowdgit.repo import get_repo_name, get_new_commits
 from crowdgit.activitymap import ActivityMap
