@@ -14,13 +14,21 @@ from fuzzywuzzy import process
 
 import dotenv
 dotenv.load_dotenv('.env')
-TOKEN = os.environ['GITHUB_TOKEN']
+
+TOKENS = [os.environ[key] for key in os.environ if key.startswith('GITHUB_TOKEN')]
 
 from crowdgit.repo import get_repo_name, get_new_commits
 from crowdgit.activitymap import ActivityMap
 
 from crowdgit.logger import get_logger
 logger = get_logger(__name__)
+
+def token_rotator(tokens):
+    while True:
+        for token in tokens:
+            yield token
+
+tokens_generator = token_rotator(TOKENS)
 
 
 def match_activity_name(activity_name: str) -> str:
@@ -127,7 +135,7 @@ def get_github_usernames(commit_sha: str, remote: str) -> list:
       }}
     }}
     """
-    headers = {'Authorization': f"Bearer {TOKEN}"}
+    headers = {'Authorization': f"Bearer {next(tokens_generator)}"}
     url = "https://api.github.com/graphql"
 
     response = requests.post(url, json={"query": query}, headers=headers)
@@ -315,7 +323,7 @@ def prepare_crowd_activities(remote: str,
         if platform == 'github':
             loaded_members = load_saved_members(remote)
             # Get all activity members and remove repetition based on email
-            git_members = [act['member'] for act in activities]
+            git_members = [act['member'] for act in activities_to_add]
             all_exist = True
             for git_member in git_members:
                 if not get_saved_member(loaded_members, git_member):
