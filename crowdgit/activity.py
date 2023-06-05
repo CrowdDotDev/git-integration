@@ -266,6 +266,7 @@ def prepare_crowd_activities(remote: str,
         commits_iter = commits
 
     for commit in commits_iter:
+        activities_to_add = []
         author = {
             'username': commit['author_name'],
             'displayName': commit['author_name'],
@@ -278,10 +279,10 @@ def prepare_crowd_activities(remote: str,
         }
 
         # Add authored-commit activity
-        activities.append(create_activity(commit, 'authored-commit', author, commit['hash']))
+        activities_to_add.append(create_activity(commit, 'authored-commit', author, commit['hash']))
 
         # Add committed-commit activity if the committer is different from the author
-        activities.append(
+        activities_to_add.append(
             create_activity(commit,
                             'committed-commit',
                             committer,
@@ -304,7 +305,7 @@ def prepare_crowd_activities(remote: str,
             source_id = hashlib.sha1((commit['hash'] +
                                       activity_type +
                                       member_data['email']).encode('utf-8')).hexdigest()
-            activities.append(create_activity(commit,
+            activities_to_add.append(create_activity(commit,
                                               activity_type,
                                               member,
                                               source_id,
@@ -326,7 +327,7 @@ def prepare_crowd_activities(remote: str,
 
             loaded_members = load_saved_members(remote)
 
-            for activity in activities:
+            for activity in activities_to_add:
                 member_info = get_saved_member(loaded_members, activity['member'])
                 if member_info['matched']:
                     activity = make_github_activity(activity, commit['hash'])
@@ -343,6 +344,7 @@ def prepare_crowd_activities(remote: str,
                     if 'attributes' not in activity['member']:
                         activity['member']['attributes'] = {}
                     activity['member']['attributes']['isBot'] = True
+        activities += activities_to_add
 
     return activities
 
