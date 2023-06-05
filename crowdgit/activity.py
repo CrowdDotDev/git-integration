@@ -341,7 +341,7 @@ def prepare_crowd_activities(remote: str,
                     activity = make_github_activity(activity, commit['hash'])
                     activity['member']['username'] = member_info['username']
                     activity['member']['displayName'] = member_info['displayName']
-                    activity['member']['emails'] = list(set(member_info['emails'] + activity['member']['emails']))
+                    activity['member']['emails'] = [email for email in set(member_info['emails'] + activity['member']['emails']) if 'noreply' not in email]
                     activity['member']['attributes'] = member_info.get('attributes', {})
                 
                 if 'matched' in activity['member']:
