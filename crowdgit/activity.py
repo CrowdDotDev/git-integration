@@ -117,7 +117,8 @@ def get_github_usernames(commit_sha: str, remote: str) -> list:
                     name
                     email
                     user {{
-                    login
+                        login
+                        avatarUrl
                     }}
                 }}
             }}
@@ -140,6 +141,8 @@ def get_github_usernames(commit_sha: str, remote: str) -> list:
             formatted_member['displayName'] = contrib['name']
         if 'email' in contrib:
             formatted_member['emails'] = [contrib['email']]
+        if 'avatarUrl' in contrib['user']:
+            formatted_member['attributes'] = {'avatarUrl': contrib['user']['avatarUrl']}
         formatted_member['username'] = contrib['user']['login']
         out.append(formatted_member)
     return out
@@ -312,15 +315,16 @@ def prepare_crowd_activities(remote: str,
                     activity['member']['username'] = member_info['username']
                     activity['member']['displayName'] = member_info['displayName']
                     activity['member']['emails'] = list(set(member_info['emails'] + activity['member']['emails']))
+                    activity['member']['attributes'] = member_info.get('attributes', {})
                 
                 if 'matched' in activity['member']:
                     del activity['member']['matched']
 
                 if activity['member']['username'] == 'GitHub' or '[bot]' in activity['member']['username']:
                     activity['platform'] = 'github'
-                    activity['member']['attributes'] = {
-                        "isBot": True,
-                    }
+                    if 'attributes' not in activity['member']:
+                        activity['member']['attributes'] = {}
+                    activity['member']['attributes']['isBot'] = True
 
     return activities
 
