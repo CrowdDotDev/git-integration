@@ -147,6 +147,24 @@ def get_github_usernames(commit_sha: str, remote: str) -> list:
         out.append(formatted_member)
     return out
 
+def make_github_activity(activity, commit_hash):
+    remote = activity['channel']
+    if remote.startswith("https://github.com/"):
+        remote = remote.replace("https://github.com/", "")
+    elif remote.startswith("git@github.com:"):
+        remote = remote.replace("git@github.com:", "")
+    else:
+        raise ValueError(f"Invalid GitHub remote URL: {remote}")
+        
+    if remote.endswith(".git"):
+        remote = remote[:-4]
+        
+    remote = f'https://github.com/{remote}'
+    activity['channel'] = remote
+    activity['url'] = f'{remote}/commit/{commit_hash}'
+    activity['platform'] = 'github'
+    return activity
+
 def save_members_info(remote: str, github_members: List[Dict], git_members: List[Dict]) -> None:
     """
     Save member information to a JSON file in the ./members directory.
@@ -311,7 +329,7 @@ def prepare_crowd_activities(remote: str,
             for activity in activities:
                 member_info = get_saved_member(loaded_members, activity['member'])
                 if member_info['matched']:
-                    activity['platform'] = 'github'
+                    activity = make_github_activity(activity, commit['hash'])
                     activity['member']['username'] = member_info['username']
                     activity['member']['displayName'] = member_info['displayName']
                     activity['member']['emails'] = list(set(member_info['emails'] + activity['member']['emails']))
@@ -321,7 +339,7 @@ def prepare_crowd_activities(remote: str,
                     del activity['member']['matched']
 
                 if activity['member']['username'] == 'GitHub' or '[bot]' in activity['member']['username']:
-                    activity['platform'] = 'github'
+                    activity = make_github_activity(activity, commit['hash'])
                     if 'attributes' not in activity['member']:
                         activity['member']['attributes'] = {}
                     activity['member']['attributes']['isBot'] = True
