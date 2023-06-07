@@ -173,8 +173,11 @@ def get_commits(repo_path: str,
     subprocess.check_output(['git', '-C', repo_path, 'config', 'core.abbrevCommit', 'false'])
 
     start_time = time.time()
-    commits_output = subprocess.check_output(git_log_command).decode('utf-8',
+    try:
+        commits_output = subprocess.check_output(git_log_command).decode('utf-8',
                                                                      errors='replace').strip()
+    except:
+        return []
     end_time = time.time()
 
     if not commits_output:
