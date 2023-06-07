@@ -144,6 +144,10 @@ def get_github_usernames(commit_sha: str, remote: str) -> list:
     contribs = commit_object.get('authors', {}).get('nodes', [])
     out = []
     for contrib in contribs:
+
+        if 'user' not in contrib or not contrib['user']:
+            continue
+
         formatted_member = {}
         if 'name' in contrib:
             formatted_member['displayName'] = contrib['name']
