@@ -138,6 +138,8 @@ class SQS:
             logger.info('Setting semaphore in %s', semaphore)
             fout.write(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 
+        activities = prepare_crowd_activities(remote)
+
         try:
             activities = prepare_crowd_activities(remote)
         except Exception as e:
