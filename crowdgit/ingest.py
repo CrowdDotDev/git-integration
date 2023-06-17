@@ -123,7 +123,7 @@ class SQS:
 
         return responses
 
-    def ingest_remote(self, remote: str):
+    def ingest_remote(self, segment_id: str, remote: str):
         repo_name = get_repo_name(remote)
         semaphore = os.path.join(LOCAL_DIR, 'running', repo_name)
         if not os.path.exists(os.path.dirname(semaphore)):
@@ -167,7 +167,7 @@ def main():
     if len(sys.argv) == 2:
         remote = sys.argv[1]
         logger.info('Ingesting %s', remote)
-        sqs.ingest_remote(remote)
+        sqs.ingest_remote('segment123', remote)
     else:
         remotes = get_remotes(os.environ['CROWD_HOST'],
                               os.environ['TENANT_ID'],
