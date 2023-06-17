@@ -92,6 +92,7 @@ class SQS:
             message_id = f"{os.environ['TENANT_ID']}-{operation}-{platform}-{deduplication_id}"
 
             body = get_body_json(chunk)
+            print(body)
 
             response = self.sqs.send_message(
                 QueueUrl=self.sqs_url,
