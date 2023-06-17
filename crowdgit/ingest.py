@@ -47,7 +47,7 @@ class SQS:
                                 aws_secret_access_key=os.environ['SQS_SECRET_ACCESS_KEY'],
                                 aws_access_key_id=os.environ['SQS_ACCESS_KEY_ID'])
 
-    def send_messages(self, records: List[Dict]) -> List[Dict]:
+    def send_messages(self, segment_id: str, records: List[Dict]) -> List[Dict]:
         """
         Send a message to the queue
 
@@ -62,6 +62,7 @@ class SQS:
 
         def get_body_json(chunk):
             return json.dumps({'tenant_id': os.environ['TENANT_ID'],
+                                'segments': [segment_id], 
                                'operation': operation,
                                'type': 'db_operations',
                                'records': chunk}, default=string_converter)
@@ -146,7 +147,7 @@ class SQS:
             return
 
         try:
-            self.send_messages(activities)
+            self.send_messages(segment_id, activities)
         except:
             logger.error('Failed trying to send messages for %s', remote)
         finally:
@@ -172,10 +173,10 @@ def main():
                               os.environ['TENANT_ID'],
                               os.environ['CROWD_API_KEY'])
 
-        for remotes in remotes.values():
-            for remote in remotes:
-                logger.info('Ingesting %s', remote)
-                sqs.ingest_remote(remote)
+        for segment_id in remotes:
+            for remote in remotes[segment_id]:
+                logger.info(f'Ingesting {remote} for segment {segment_id}')
+                sqs.ingest_remote(segment_id, remote)
 
 
 if __name__ == '__main__':
