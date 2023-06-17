@@ -61,6 +61,11 @@ class SQS:
         operation = "upsert_activities_with_members"
 
         def get_body_json(chunk):
+            print({'tenant_id': os.environ['TENANT_ID'],
+                                'segments': [segment_id], 
+                               'operation': operation,
+                               'type': 'db_operations',
+                               'records': chunk})
             return json.dumps({'tenant_id': os.environ['TENANT_ID'],
                                 'segments': [segment_id], 
                                'operation': operation,
@@ -92,7 +97,6 @@ class SQS:
             message_id = f"{os.environ['TENANT_ID']}-{operation}-{platform}-{deduplication_id}"
 
             body = get_body_json(chunk)
-            print(body['segments'])
 
             response = self.sqs.send_message(
                 QueueUrl=self.sqs_url,
