@@ -64,8 +64,7 @@ class SQS:
             print({'tenant_id': os.environ['TENANT_ID'],
                                 'segments': [segment_id], 
                                'operation': operation,
-                               'type': 'db_operations',
-                               'records': chunk})
+                               'type': 'db_operations',})
             return json.dumps({'tenant_id': os.environ['TENANT_ID'],
                                 'segments': [segment_id], 
                                'operation': operation,
