@@ -34,6 +34,7 @@ def get_remotes(host, tenant_id, api_key):
       'Authorization': f'Bearer {api_key}'
     }
 
+    print(url)
     response = requests.request("GET", url, headers=headers, data=payload, timeout=10)
 
     if response.status_code == 200:
