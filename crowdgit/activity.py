@@ -261,7 +261,6 @@ def prepare_crowd_activities(remote: str,
                 'lines': commit.get('insertions', 0) - commit.get('deletions', 0),
                 'isMerge': commit['is_merge_commit'],
                 'isMainBranch': True,
-                # 'branches': commit['branches']
             },
             'url': remote,
             'member': member
