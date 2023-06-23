@@ -146,8 +146,8 @@ class SQS:
             os.remove(semaphore)
             return
 
-        try:
-            self.send_messages(segment_id, activities)
+        # try:
+        #     self.send_messages(segment_id, activities)
         except:
             logger.error('Failed trying to send messages for %s', remote)
         finally:
