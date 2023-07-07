@@ -139,12 +139,12 @@ class SQS:
             logger.info('Setting semaphore in %s', semaphore)
             fout.write(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 
-        # try:
-        activities = prepare_crowd_activities(remote)
-        # except Exception as e:
-        #     logger.error('Failed trying to prepare activities for %s', remote)
-        #     os.remove(semaphore)
-        #     return
+        try:
+            activities = prepare_crowd_activities(remote)
+        except Exception as e:
+            logger.error('Failed trying to prepare activities for %s', remote)
+            os.remove(semaphore)
+            return
 
         try:
             self.send_messages(segment_id, activities)
