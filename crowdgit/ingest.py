@@ -176,7 +176,8 @@ def main():
         for segment_id in remotes:
             for remote in remotes[segment_id]:
                 logger.info(f'Ingesting {remote} for segment {segment_id}')
-                sqs.ingest_remote(segment_id, remote)
+                if remote == 'https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git':
+                    sqs.ingest_remote(segment_id, remote)
 
 
 if __name__ == '__main__':
