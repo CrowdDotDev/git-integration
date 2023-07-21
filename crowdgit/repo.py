@@ -340,7 +340,7 @@ def get_new_commits(remote: str, repos_dir: str = REPOS_DIR) -> List[Dict]:
                              of the message.
     """
     repo_path = get_local_repo(remote, repos_dir)
-
+    print(repo_path)
     def _add_insertions_deletions(commits: List,
                                   insertions_deletions: Dict) -> List[Dict]:
         return [commit | insertions_deletions.get(commit['hash'], {'insertions': 0,
