@@ -177,9 +177,9 @@ def main():
             for remote in remotes[segment_id]:
                 logger.info(f'Ingesting {remote} for segment {segment_id}')
                 # TODO Remove
-                if remote == 'https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git':
-                    sqs.ingest_remote(segment_id, remote)
-                # sqs.ingest_remote(segment_id, remote)
+                # if remote == 'https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git':
+                #     sqs.ingest_remote(segment_id, remote)
+                sqs.ingest_remote(segment_id, remote)
                 
 
 

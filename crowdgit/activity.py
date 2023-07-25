@@ -271,7 +271,7 @@ def prepare_crowd_activities(remote: str,
     if commits is None:
         commits = get_new_commits(remote)
     # TODO Remove
-    verbose = True
+    # verbose = True
     if verbose:
         commits_iter = tqdm.tqdm(commits, desc="Processing commits")
     else:
