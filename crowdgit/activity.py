@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 import re
-import requests
 import hashlib
 import time
 from typing import List, Dict
@@ -9,6 +8,7 @@ from datetime import datetime
 import os
 import json
 
+import requests
 import tqdm
 from fuzzywuzzy import process
 
@@ -93,26 +93,18 @@ def extract_activities(commit_message: List[str]) -> List[Dict[str, Dict[str, st
     return activities
 # :/prompt:extract-activities
 
-import re
-import requests
-from typing import List
-
-# Other required imports here
-
-import re
-import requests
-
 
 def get_github_usernames(commit_sha: str, remote: str) -> list:
-    """
-    Gets the GitHub contributors (author and committer) for a given commit SHA using the GitHub GraphQL API.
-    
+    """Gets the GitHub contributors (author and committer) for a
+    given commit SHA using the GitHub GraphQL API.
+
     Args:
         commit_sha: Commit SHA to query for the corresponding GitHub contributors.
         remote: Remote GitHub repository URL.
-        
+
     Returns:
         list: List of GitHub contributors.
+
     """
     repo_owner, repo_name = re.split('[:/]', remote.replace('.git', ''))[-2:]
     query = f"""
@@ -159,6 +151,7 @@ def get_github_usernames(commit_sha: str, remote: str) -> list:
         out.append(formatted_member)
     return out
 
+
 def make_github_activity(activity, commit_hash):
     remote = activity['channel']
     if remote.startswith("https://github.com/"):
@@ -167,15 +160,16 @@ def make_github_activity(activity, commit_hash):
         remote = remote.replace("git@github.com:", "")
     else:
         raise ValueError(f"Invalid GitHub remote URL: {remote}")
-        
+
     if remote.endswith(".git"):
         remote = remote[:-4]
-        
+
     remote = f'https://github.com/{remote}'
     activity['channel'] = remote
     activity['url'] = f'{remote}/commit/{commit_hash}'
     activity['platform'] = 'github'
     return activity
+
 
 def save_members_info(remote: str, github_members: List[Dict], git_members: List[Dict]) -> None:
     """
@@ -190,14 +184,17 @@ def save_members_info(remote: str, github_members: List[Dict], git_members: List
     if not os.path.exists(members_directory):
         os.makedirs(members_directory)
     file_path = os.path.join(members_directory, f'{remote_name}.json')
-    
+
     saved_members = load_saved_members(remote)
     for git_member in git_members:
-        if get_saved_member(saved_members, git_member): continue
+        if get_saved_member(saved_members, git_member):
+            continue
 
         matched = False
         for github_member in github_members:
-            if git_member['emails'][0] == github_member['emails'][0] or git_member['displayName'] == github_member['displayName'] or git_member['username'] == github_member['username']:
+            if ( git_member['emails'][0] == github_member['emails'][0] or
+                 git_member['displayName'] == github_member['displayName'] or
+                 git_member['username'] == github_member['username'] ):
                 github_member['matched'] = True
                 saved_members.update({git_member['emails'][0]: github_member})
                 matched = True
@@ -208,6 +205,7 @@ def save_members_info(remote: str, github_members: List[Dict], git_members: List
 
     with open(file_path, 'w', encoding='utf-8') as f:
         json.dump(saved_members, f, indent=2, ensure_ascii=False)
+
 
 def load_saved_members(remote: str) -> Dict:
     """
@@ -222,18 +220,21 @@ def load_saved_members(remote: str) -> Dict:
     """
     remote_name = remote.split('/')[-1].replace('.git', '')
     file_path = os.path.join('./members', f'{remote_name}.json')
-    
+
     if os.path.exists(file_path):
         with open(file_path, 'r', encoding='utf-8') as f:
             all_members = json.load(f)
         return all_members
     return {}
 
+
 def get_saved_member(loaded_members: List[Dict], member):
     if member['emails'][0] not in loaded_members:
         return False
     return loaded_members[member['emails'][0]]
 
+
+# pylint: disable=too-many-branches
 def prepare_crowd_activities(remote: str,
                              commits: List[Dict] = None,
                              verbose: bool = False) -> List[Dict]:
@@ -270,8 +271,7 @@ def prepare_crowd_activities(remote: str,
 
     if commits is None:
         commits = get_new_commits(remote)
-    # TODO Remove
-    # verbose = True
+
     if verbose:
         commits_iter = tqdm.tqdm(commits, desc="Processing commits")
     else:
@@ -291,7 +291,10 @@ def prepare_crowd_activities(remote: str,
         }
 
         # Add authored-commit activity
-        activities_to_add.append(create_activity(commit, 'authored-commit', author, commit['hash']))
+        activities_to_add.append(create_activity(commit,
+                                                 'authored-commit',
+                                                 author,
+                                                 commit['hash']))
 
         # Add committed-commit activity if the committer is different from the author
         activities_to_add.append(
@@ -300,7 +303,8 @@ def prepare_crowd_activities(remote: str,
                             committer,
                             hashlib.sha1((commit['hash'] +
                                           'commited-commit' +
-                                          commit['committer_email']).encode('utf-8')).hexdigest(), commit['hash']))
+                                          commit['committer_email']).encode('utf-8')).hexdigest(),
+                            commit['hash']))
 
         # Extract and add other activities
         extracted_activities = extract_activities(commit['message'])
@@ -322,7 +326,7 @@ def prepare_crowd_activities(remote: str,
                                               member,
                                               source_id,
                                               commit['hash']))
-        
+
         platform = 'github' if 'github' in remote else 'git'
         if platform == 'github':
             loaded_members = load_saved_members(remote)
@@ -345,13 +349,17 @@ def prepare_crowd_activities(remote: str,
                     activity = make_github_activity(activity, commit['hash'])
                     activity['member']['username'] = member_info['username']
                     activity['member']['displayName'] = member_info['displayName']
-                    activity['member']['emails'] = [email for email in set(member_info['emails'] + activity['member']['emails']) if 'noreply' not in email]
+                    activity['member']['emails'] = [
+                        email for email in set(member_info['emails'] +
+                                               activity['member']['emails'])
+                        if 'noreply' not in email]
                     activity['member']['attributes'] = member_info.get('attributes', {})
-                
+
                 if 'matched' in activity['member']:
                     del activity['member']['matched']
 
-                if activity['member']['username'] == 'GitHub' or '[bot]' in activity['member']['username']:
+                if ( activity['member']['username'] == 'GitHub' or
+                     '[bot]' in activity['member']['username'] ):
                     activity = make_github_activity(activity, commit['hash'])
                     if 'attributes' not in activity['member']:
                         activity['member']['attributes'] = {}
@@ -363,7 +371,6 @@ def prepare_crowd_activities(remote: str,
 
 def main():
     import argparse
-    import json
 
     parser = argparse.ArgumentParser(description='Extract activities from commit messages.')
     parser.add_argument('input_file',
