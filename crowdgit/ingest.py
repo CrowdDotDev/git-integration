@@ -62,7 +62,7 @@ class SQS:
 
         def get_body_json(chunk):
             return json.dumps({'tenant_id': os.environ['TENANT_ID'],
-                                'segments': [segment_id], 
+                                'segments': [segment_id],
                                'operation': operation,
                                'type': 'db_operations',
                                'records': chunk}, default=string_converter)
@@ -120,7 +120,7 @@ class SQS:
             else:
                 logger.error('Received a %d status code from SQS with %s',
                              status_code, body)
-    
+
         return responses
 
     def ingest_remote(self, segment_id: str, remote: str):
@@ -142,8 +142,9 @@ class SQS:
         try:
             activities = prepare_crowd_activities(remote)
         except Exception as e:
-            logger.error('Failed trying to prepare activities for %s', remote)
-            os.remove(semaphore)
+            logger.error('Failed trying to prepare activities for %s. Error:\n%s', remote, str(e))
+            if os.path.exists(semaphore):
+                os.remove(semaphore)
             return
 
         try:
@@ -180,7 +181,7 @@ def main():
                 # if remote == 'https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git':
                 #     sqs.ingest_remote(segment_id, remote)
                 sqs.ingest_remote(segment_id, remote)
-                
+
 
 
 if __name__ == '__main__':
