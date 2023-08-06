@@ -269,7 +269,7 @@ def get_insertions_deletions(repo_path: str,
                                                                      errors='replace').strip()
     except:
         return {}
-    
+
     end_time = time.time()
 
     if not commits_output:
@@ -348,6 +348,7 @@ def get_new_commits(remote: str, repos_dir: str = REPOS_DIR) -> List[Dict]:
 
     if not os.path.exists(repo_path):
         # Clone the repo if it doesn't exist
+        logger.info('Repo %s not existing locally', repo_path)
         clone_repo(remote, repos_dir)
         default_branch = get_default_branch(repo_path)
         insertions_deletions = get_insertions_deletions(repo_path, default_branch)
@@ -356,7 +357,7 @@ def get_new_commits(remote: str, repos_dir: str = REPOS_DIR) -> List[Dict]:
                                                 insertions_deletions)
         return new_commits
 
-
+    logger.info('Fetching %s', repo_path)
     # Fetch the remote changes without merging
     subprocess.run(['git', '-C', repo_path, 'fetch'],
                    check=True,
