@@ -175,12 +175,18 @@ def get_commits(repo_path: str,
     start_time = time.time()
     try:
         commits_output = subprocess.check_output(git_log_command).decode('utf-8',
-                                                                     errors='replace').strip()
-    except:
+                                                                         errors='replace').strip()
+    except Exception as e:
+        logger.error('Failed trying to extract commits for %s with %s: \n%s',
+                     repo_path,
+                     ' '.join(git_log_command),
+                     str(e))
         return []
+
     end_time = time.time()
 
     if not commits_output:
+        logger.info('Did not find any commit output in %s', repo_path)
         return []
 
     bad_commits = 0
