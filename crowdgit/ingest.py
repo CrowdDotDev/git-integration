@@ -61,11 +61,10 @@ class SQS:
         operation = "upsert_activities_with_members"
 
         def get_body_json(chunk):
-            return json.dumps({'tenant_id': os.environ['TENANT_ID'],
-                                'segments': [segment_id],
-                               'operation': operation,
-                               'type': 'db_operations',
-                               'records': chunk}, default=string_converter)
+            return json.dumps({'type': 'create_and_process_activity_result',
+                                'tenantId': os.environ['TENANT_ID'],
+                                'segmentId': segment_id,
+                                'activityData': chunk}, default=string_converter)
 
         def get_body_size(chunk):
             return len(get_body_json(chunk).encode('utf-8'))
