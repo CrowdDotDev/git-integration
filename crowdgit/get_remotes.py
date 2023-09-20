@@ -27,8 +27,8 @@ logger = get_logger(__name__)
 
 
 def get_remotes(host, tenant_id, api_key):
-    url = f"https://{host}/api/tenant/{tenant_id}/git"
-
+    protocol = "http" if "localhost" in host else "https"
+    url = f"{protocol}://{host}/api/tenant/{tenant_id}/git"
     payload = {}
     headers = {
       'Authorization': f'Bearer {api_key}'

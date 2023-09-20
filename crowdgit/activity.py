@@ -255,6 +255,7 @@ def prepare_crowd_activities(remote: str,
             'platform': 'git',
             'channel': remote,
             'body': '\n'.join(commit['message']),
+            'isContribution': True,
             'attributes': {
                 'insertions': commit.get('insertions', 0),
                 'timezone': dt.tzname(),
@@ -365,6 +366,17 @@ def prepare_crowd_activities(remote: str,
                         activity['member']['attributes'] = {}
                     activity['member']['attributes']['isBot'] = True
         activities += activities_to_add
+
+    # For the new processing of activities
+    for activity in activities:
+        activity['member']['identities'] = [
+            {
+                'platform': activity["platform"],
+                'username': activity["member"]["username"]
+            }
+        ]
+
+        del activity["member"]["username"]
 
     return activities
 

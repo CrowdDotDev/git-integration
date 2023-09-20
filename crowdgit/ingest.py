@@ -47,7 +47,7 @@ class SQS:
                                 aws_secret_access_key=os.environ['SQS_SECRET_ACCESS_KEY'],
                                 aws_access_key_id=os.environ['SQS_ACCESS_KEY_ID'])
 
-    def send_messages(self, segment_id: str, records: List[Dict]) -> List[Dict]:
+    def send_messages(self, segment_id: str, integration_id: str, records: List[Dict]) -> List[Dict]:
         """
         Send a message to the queue
 
@@ -60,37 +60,21 @@ class SQS:
 
         operation = "upsert_activities_with_members"
 
-        def get_body_json(chunk):
+        def get_body_json(record):
             return json.dumps({'type': 'create_and_process_activity_result',
                                 'tenantId': os.environ['TENANT_ID'],
                                 'segmentId': segment_id,
-                                'activityData': chunk}, default=string_converter)
-
-        def get_body_size(chunk):
-            return len(get_body_json(chunk).encode('utf-8'))
-
-        def create_chunks(lst):
-            MAX_PAYLOAD_SIZE = 255 * 1024  # 256 KiB in bytes, -1 KiB for margin
-            chunk = []
-
-            for record in lst:
-                if get_body_size(chunk + [record]) >= MAX_PAYLOAD_SIZE:
-                    yield chunk
-                    chunk = [record]
-                else:
-                    chunk.append(record)
-
-            if chunk:
-                yield chunk
+                                'integrationId': integration_id,
+                                'activityData': record}, default=string_converter)
 
         platform = "git"
         responses = []
 
-        for chunk in create_chunks(records):
+        for record in records:
             deduplication_id = str(uuid())
             message_id = f"{os.environ['TENANT_ID']}-{operation}-{platform}-{deduplication_id}"
 
-            body = get_body_json(chunk)
+            body = get_body_json(record)
 
             response = self.sqs.send_message(
                 QueueUrl=self.sqs_url,
@@ -122,7 +106,7 @@ class SQS:
 
         return responses
 
-    def ingest_remote(self, segment_id: str, remote: str):
+    def ingest_remote(self, segment_id: str, integration_id: str, remote: str):
         repo_name = get_repo_name(remote)
         semaphore = os.path.join(LOCAL_DIR, 'running', repo_name)
         if not os.path.exists(os.path.dirname(semaphore)):
@@ -146,13 +130,13 @@ class SQS:
                 os.remove(semaphore)
             return
 
-        try:
-            self.send_messages(segment_id, activities)
-        except:
-            logger.error('Failed trying to send messages for %s', remote)
-        finally:
-            if os.path.exists(semaphore):
-                os.remove(semaphore)
+        #try:
+        self.send_messages(segment_id, integration_id, activities)
+        #except:
+        #    logger.error('Failed trying to send messages for %s', remote)
+        #finally:
+        #    if os.path.exists(semaphore):
+        #        os.remove(semaphore)
 
     @staticmethod
     def make_id() -> str:
@@ -174,12 +158,13 @@ def main():
                               os.environ['CROWD_API_KEY'])
 
         for segment_id in remotes:
-            for remote in remotes[segment_id]:
+            integration_id = remotes[segment_id]["integrationId"]
+            for remote in remotes[segment_id]['remotes']:
                 logger.info(f'Ingesting {remote} for segment {segment_id}')
                 # TODO Remove
                 # if remote == 'https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git':
                 #     sqs.ingest_remote(segment_id, remote)
-                sqs.ingest_remote(segment_id, remote)
+                sqs.ingest_remote(segment_id, integration_id, remote)
 
 
 
