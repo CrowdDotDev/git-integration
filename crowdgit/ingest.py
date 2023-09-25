@@ -19,6 +19,7 @@ from crowdgit.activity import prepare_crowd_activities
 from crowdgit.repo import get_repo_name
 
 from crowdgit.logger import get_logger
+
 logger = get_logger(__name__)
 
 
@@ -39,15 +40,19 @@ class SQS:
         """
         Initialise class to handle SQS requests.
         """
-        self.sqs_url = os.environ['SQS_ENDPOINT_URL']
+        self.sqs_url = os.environ["SQS_ENDPOINT_URL"]
 
-        self.sqs = boto3.client("sqs",
-                                endpoint_url=os.environ['SQS_ENDPOINT_URL'],
-                                region_name=os.environ['SQS_REGION'],
-                                aws_secret_access_key=os.environ['SQS_SECRET_ACCESS_KEY'],
-                                aws_access_key_id=os.environ['SQS_ACCESS_KEY_ID'])
+        self.sqs = boto3.client(
+            "sqs",
+            endpoint_url=os.environ["SQS_ENDPOINT_URL"],
+            region_name=os.environ["SQS_REGION"],
+            aws_secret_access_key=os.environ["SQS_SECRET_ACCESS_KEY"],
+            aws_access_key_id=os.environ["SQS_ACCESS_KEY_ID"],
+        )
 
-    def send_messages(self, segment_id: str, integration_id: str, records: List[Dict]) -> List[Dict]:
+    def send_messages(
+        self, segment_id: str, integration_id: str, records: List[Dict]
+    ) -> List[Dict]:
         """
         Send a message to the queue
 
@@ -61,18 +66,25 @@ class SQS:
         operation = "upsert_activities_with_members"
 
         def get_body_json(record):
-            return json.dumps({'type': 'create_and_process_activity_result',
-                                'tenantId': os.environ['TENANT_ID'],
-                                'segmentId': segment_id,
-                                'integrationId': integration_id,
-                                'activityData': record}, default=string_converter)
+            return json.dumps(
+                {
+                    "type": "create_and_process_activity_result",
+                    "tenantId": os.environ["TENANT_ID"],
+                    "segmentId": segment_id,
+                    "integrationId": integration_id,
+                    "activityData": record,
+                },
+                default=string_converter,
+            )
 
         platform = "git"
         responses = []
 
         for record in records:
             deduplication_id = str(uuid())
-            message_id = f"{os.environ['TENANT_ID']}-{operation}-{platform}-{deduplication_id}"
+            message_id = (
+                f"{os.environ['TENANT_ID']}-{operation}-{platform}-{deduplication_id}"
+            )
 
             body = get_body_json(record)
 
@@ -97,44 +109,47 @@ class SQS:
             #                       'RequestId': 'fbee9fd0-8041-5289-8ba3-c30551dc5ad3',
             #                       'RetryAttempts': 0},
             #  'SequenceNumber': '18877781119960559616'}
-            status_code = response['ResponseMetadata']['HTTPStatusCode']
+            status_code = response["ResponseMetadata"]["HTTPStatusCode"]
             if status_code == 200:
                 responses.append(response)
             else:
-                logger.error('Received a %d status code from SQS with %s',
-                             status_code, body)
+                logger.error(
+                    "Received a %d status code from SQS with %s", status_code, body
+                )
 
         return responses
 
     def ingest_remote(self, segment_id: str, integration_id: str, remote: str):
         repo_name = get_repo_name(remote)
-        semaphore = os.path.join(LOCAL_DIR, 'running', repo_name)
+        semaphore = os.path.join(LOCAL_DIR, "running", repo_name)
         if not os.path.exists(os.path.dirname(semaphore)):
             os.makedirs(os.path.dirname(semaphore))
 
         if os.path.exists(semaphore):
-            with open(semaphore, 'r', encoding='utf-8') as fin:
+            with open(semaphore, "r", encoding="utf-8") as fin:
                 timestamp = fin.read().strip()
-            logger.info('Skipping %s, already running since %s', repo_name, timestamp)
+            logger.info("Skipping %s, already running since %s", repo_name, timestamp)
             return
 
-        with open(semaphore, 'w', encoding='utf-8') as fout:
-            logger.info('Setting semaphore in %s', semaphore)
-            fout.write(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+        with open(semaphore, "w", encoding="utf-8") as fout:
+            logger.info("Setting semaphore in %s", semaphore)
+            fout.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
         try:
             activities = prepare_crowd_activities(remote)
         except Exception as e:
-            logger.error('Failed trying to prepare activities for %s. Error:\n%s', remote, str(e))
+            logger.error(
+                "Failed trying to prepare activities for %s. Error:\n%s", remote, str(e)
+            )
             if os.path.exists(semaphore):
                 os.remove(semaphore)
             return
 
-        #try:
+        # try:
         self.send_messages(segment_id, integration_id, activities)
-        #except:
+        # except:
         #    logger.error('Failed trying to send messages for %s', remote)
-        #finally:
+        # finally:
         #    if os.path.exists(semaphore):
         #        os.remove(semaphore)
 
@@ -150,24 +165,28 @@ def main():
 
     if len(sys.argv) == 2:
         remote = sys.argv[1]
-        logger.info('Ingesting %s', remote)
-        sqs.ingest_remote('segment123', remote)
+        logger.info("Ingesting %s", remote)
+        sqs.ingest_remote("segment123", remote)
     else:
-        remotes = get_remotes(os.environ['CROWD_HOST'],
-                              os.environ['TENANT_ID'],
-                              os.environ['CROWD_API_KEY'])
+        remotes = get_remotes(
+            os.environ["CROWD_HOST"],
+            os.environ["TENANT_ID"],
+            os.environ["CROWD_API_KEY"],
+        )
 
         for segment_id in remotes:
             integration_id = remotes[segment_id]["integrationId"]
-            for remote in remotes[segment_id]['remotes']:
-                logger.info(f'Ingesting {remote} for segment {segment_id}')
+            for remote in remotes[segment_id]["remotes"]:
                 # TODO Remove
-                if remote == 'https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git':
-                     sqs.ingest_remote(segment_id, integration_id, remote)
-                #sqs.ingest_remote(segment_id, integration_id, remote)
+                if (
+                    remote
+                    == "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git"
+                ):
+                    logger.info(f"Ingesting {remote} for segment {segment_id}")
+                    sqs.ingest_remote(segment_id, integration_id, remote)
+                # sqs.ingest_remote(segment_id, integration_id, remote)
 
 
-
-if __name__ == '__main__':
-    logger.info('HERE')
+if __name__ == "__main__":
+    logger.info("HERE")
     main()
