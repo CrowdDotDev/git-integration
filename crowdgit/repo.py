@@ -6,6 +6,8 @@ import time
 import re
 from typing import List, Optional, Dict
 
+import tqdm
+
 from crowdgit import LOCAL_DIR
 import crowdgit.errors as E
 
@@ -159,6 +161,7 @@ def get_commits(
     new_only: bool = False,
     since: Optional[str] = None,
     until: Optional[str] = None,
+    verbose: bool = False,
 ) -> List[Dict]:
     """Get the commits of the repository.
 
@@ -181,6 +184,7 @@ def get_commits(
                 - 'message': The commit message as a list of strings, where each string is a line
                              of the message.
     """
+    logger.info('Extracting commits from %s', repo_path)
     if new_only:
         commit_range = f'..origin/{default_branch}'
     else:
@@ -231,7 +235,14 @@ def get_commits(
 
     bad_commits = 0
     commits = []
-    for commit_text in commits_output.split(splitter):
+
+    commits_texts = commits_output.split(splitter)
+    if verbose:
+        commits_iter = tqdm.tqdm(commits_texts, desc="Parsing commits")
+    else:
+        commits_iter = commits_texts
+
+    for commit_text in commits_iter:
         commit_lines = commit_text.strip().splitlines()
         if len(commit_lines) < 8:
             bad_commits += 1
@@ -395,7 +406,9 @@ def get_insertions_deletions(
 
 
 # :prompt:get-new-commits
-def get_new_commits(remote: str, repos_dir: str = REPOS_DIR) -> List[Dict]:
+def get_new_commits(
+    remote: str, repos_dir: str = REPOS_DIR, verbose: bool = False
+) -> List[Dict]:
     """Get new commits from the remote repository.
     :param remote: The remote repository URL.
     :param repos_dir: The local directory where repositories are stored (default: REPOS_DIR).
@@ -449,7 +462,7 @@ def get_new_commits(remote: str, repos_dir: str = REPOS_DIR) -> List[Dict]:
     )
 
     default_branch = get_default_branch(repo_path)
-    new_commits = get_commits(repo_path, default_branch, new_only=True)
+    new_commits = get_commits(repo_path, default_branch, new_only=True, verbose=verbose)
     insertions_deletions = get_insertions_deletions(
         repo_path, default_branch, new_only=True
     )
