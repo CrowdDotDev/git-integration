@@ -307,6 +307,7 @@ def get_insertions_deletions(
     new_only: bool = False,
     since: Optional[str] = None,
     until: Optional[str] = None,
+    verbose: bool = False,
 ) -> Dict[str, Dict]:
     """Get the insertions and deletions for each commit in the repository.
 
@@ -318,6 +319,7 @@ def get_insertions_deletions(
     :return: A dictionary with commit hash as key and a dictionary with keys
              insertions/deletions as value.
     """
+    logger.info('Extracting insertions/deletions from %s', repo_path)
     if new_only:
         commit_range = f'..origin/{default_branch}'
     else:
@@ -361,7 +363,14 @@ def get_insertions_deletions(
 
     bad_commits = 0
     changes = {}
-    for commit_text in commits_output.split('\n\n'):
+
+    commits_texts = commits_output.split('\n\n')
+    if verbose:
+        commits_iter = tqdm.tqdm(commits_texts, desc="Extracting insertions/deletions")
+    else:
+        commits_iter = commits_texts
+
+    for commit_text in commits_texts:
         commit_lines = commit_text.strip().splitlines()
 
         if len(commit_lines) < 2:
@@ -445,10 +454,13 @@ def get_new_commits(
         logger.info('Repo %s not existing locally', repo_path)
         clone_repo(remote, repos_dir)
         default_branch = get_default_branch(repo_path)
-        insertions_deletions = get_insertions_deletions(repo_path, default_branch)
+        insertions_deletions = get_insertions_deletions(
+            repo_path, default_branch, new_only=False, verbose=verbose
+        )
 
         new_commits = _add_insertions_deletions(
-            get_commits(repo_path, default_branch), insertions_deletions
+            get_commits(repo_path, default_branch, new_only=False, verbose=verbose),
+            insertions_deletions,
         )
         return new_commits
 
@@ -464,7 +476,7 @@ def get_new_commits(
     default_branch = get_default_branch(repo_path)
     new_commits = get_commits(repo_path, default_branch, new_only=True, verbose=verbose)
     insertions_deletions = get_insertions_deletions(
-        repo_path, default_branch, new_only=True
+        repo_path, default_branch, new_only=True, verbose=verbose
     )
 
     if new_commits:
