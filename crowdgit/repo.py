@@ -146,11 +146,15 @@ def clone_repo(remote: str, repos_dir: str) -> None:
 
 
 def store_bad_commits(commit_lines: str, repo_path: str):
-    with open(
-        os.path.join(BAD_COMMITS_DIR, os.path.basename(repo_path)),
-        'a',
-        encoding='utf-8',
-    ) as fout:
+    if not os.path.exists(BAD_COMMITS_DIR):
+        os.makedirs(BAD_COMMITS_DIR)
+
+    bad_commits_file = (
+        os.path.join(BAD_COMMITS_DIR, os.path.basename(repo_path)) + '.txt'
+    )
+
+    logger.info('Storing bad commits in %s: %s', bad_commits_file, commit_lines)
+    with open(bad_commits_file, 'a', encoding='utf-8') as fout:
         fout.write(commit_lines)
         fout.write('-------------')
 
