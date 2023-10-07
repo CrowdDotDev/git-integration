@@ -252,6 +252,12 @@ def prepare_crowd_activities(
     ) -> Dict:
         dt = datetime.fromisoformat(commit['datetime'])
 
+        # Check if username or displayName is None, an empty string, or not an actual name
+        if not member["username"]:
+            member["username"] = member["emails"][0].split("@")[0]
+        if not member["displayName"]:
+            member["displayName"] = member["emails"][0].split("@")[0]
+
         return {
             'type': activity_type,
             'timestamp': commit['datetime'],
