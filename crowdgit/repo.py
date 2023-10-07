@@ -370,7 +370,7 @@ def get_insertions_deletions(
     else:
         commits_iter = commits_texts
 
-    for commit_text in commits_texts:
+    for commit_text in commits_iter:
         commit_lines = commit_text.strip().splitlines()
 
         if len(commit_lines) < 2:
