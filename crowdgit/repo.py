@@ -16,6 +16,9 @@ logger = get_logger(__name__)
 DEFAULT_REPOS_DIR = os.path.join(LOCAL_DIR, 'repos')
 REPOS_DIR = os.environ.get('REPOS_DIR', DEFAULT_REPOS_DIR)
 
+DEFAULT_BAD_COMMITS_DIR = os.path.join(LOCAL_DIR, 'bad-commits')
+BAD_COMMITS_DIR = os.environ.get('BAD_COMMITS_DIR', DEFAULT_BAD_COMMITS_DIR)
+
 
 def get_repo_name(remote: str) -> str:
     """Get the repository name from the remote URL.
@@ -140,6 +143,16 @@ def clone_repo(remote: str, repos_dir: str) -> None:
         raise E.GitRunError(remote, repo_path, e)
 
 
+def store_bad_commits(commit_lines: str, repo_path: str):
+    with open(
+        os.path.join(BAD_COMMITS_DIR, os.path.basename(repo_path)),
+        'a',
+        encoding='utf-8',
+    ) as fout:
+        fout.write(commit_lines)
+        fout.write('-------------')
+
+
 def get_commits(
     repo_path: str,
     default_branch: str,
@@ -222,6 +235,7 @@ def get_commits(
         commit_lines = commit_text.strip().splitlines()
         if len(commit_lines) < 8:
             bad_commits += 1
+            store_bad_commits(commit_text, repo_path)
             continue
 
         commit_hash = commit_lines[0]
@@ -243,6 +257,7 @@ def get_commits(
                 commit_datetime,
             )
             bad_commits += 1
+            store_bad_commits(commit_text, repo_path)
             continue
 
         is_main_branch = f'origin/{default_branch}' in ref_names
@@ -340,6 +355,7 @@ def get_insertions_deletions(
 
         if len(commit_lines) < 2:
             bad_commits += 1
+            store_bad_commits(commits_output, repo_path)
             continue
 
         commit_hash = commit_lines[0]
@@ -348,6 +364,7 @@ def get_insertions_deletions(
                 'Invalid insertions/deletions hash found: hash=%s', commit_hash
             )
             bad_commits += 1
+            store_bad_commits(commits_output, repo_path)
             continue
 
         insertions_deletions = commit_lines[1:]
