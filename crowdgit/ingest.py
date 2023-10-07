@@ -12,6 +12,7 @@ from typing import List, Dict
 
 from uuid import uuid1 as uuid
 import boto3
+import tqdm
 
 from crowdgit import LOCAL_DIR
 from crowdgit.get_remotes import get_remotes
@@ -51,7 +52,11 @@ class SQS:
         )
 
     def send_messages(
-        self, segment_id: str, integration_id: str, records: List[Dict]
+        self,
+        segment_id: str,
+        integration_id: str,
+        records: List[Dict],
+        verbose: bool = False,
     ) -> List[Dict]:
         """
         Send a message to the queue
@@ -80,7 +85,12 @@ class SQS:
         platform = "git"
         responses = []
 
-        for record in records:
+        if verbose:
+            commits_iter = tqdm.tqdm(records, desc="Processing records")
+        else:
+            commits_iter = records
+
+        for record in commits_iter:
             deduplication_id = str(uuid())
             message_id = (
                 f"{os.environ['TENANT_ID']}-{operation}-{platform}-{deduplication_id}"
@@ -119,7 +129,9 @@ class SQS:
 
         return responses
 
-    def ingest_remote(self, segment_id: str, integration_id: str, remote: str):
+    def ingest_remote(
+        self, segment_id: str, integration_id: str, remote: str, verbose: bool = False
+    ):
         repo_name = get_repo_name(remote)
         semaphore = os.path.join(LOCAL_DIR, "running", repo_name)
         if not os.path.exists(os.path.dirname(semaphore)):
@@ -136,7 +148,7 @@ class SQS:
             fout.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
         try:
-            activities = prepare_crowd_activities(remote)
+            activities = prepare_crowd_activities(remote, verbose=verbose)
         except Exception as e:
             logger.error(
                 "Failed trying to prepare activities for %s. Error:\n%s", remote, str(e)
@@ -145,13 +157,13 @@ class SQS:
                 os.remove(semaphore)
             return
 
-        # try:
-        self.send_messages(segment_id, integration_id, activities)
-        # except:
-        #    logger.error('Failed trying to send messages for %s', remote)
-        # finally:
-        #    if os.path.exists(semaphore):
-        #        os.remove(semaphore)
+        try:
+            self.send_messages(segment_id, integration_id, activities, verbose=verbose)
+        except:
+            logger.error('Failed trying to send messages for %s', remote)
+        finally:
+            if os.path.exists(semaphore):
+                os.remove(semaphore)
 
     @staticmethod
     def make_id() -> str:
@@ -159,32 +171,34 @@ class SQS:
 
 
 def main():
-    import sys
+    import argparse
+
+    parser = argparse.ArgumentParser(description='Ingest remote.')
+    parser.add_argument(
+        '--remote',
+        type=str,
+        default='',
+        help='Remote url. Will only ingest a remote comming from the tenant that matches it.',
+    )
+    parser.add_argument('--verbose', action='store_true', help='Verbose output.')
+    args = parser.parse_args()
 
     sqs = SQS()
 
-    if len(sys.argv) == 2:
-        remote = sys.argv[1]
-        logger.info("Ingesting %s", remote)
-        sqs.ingest_remote("segment123", remote)
-    else:
-        remotes = get_remotes(
-            os.environ["CROWD_HOST"],
-            os.environ["TENANT_ID"],
-            os.environ["CROWD_API_KEY"],
-        )
+    remotes = get_remotes(
+        os.environ["CROWD_HOST"],
+        os.environ["TENANT_ID"],
+        os.environ["CROWD_API_KEY"],
+    )
 
-        for segment_id in remotes:
-            integration_id = remotes[segment_id]["integrationId"]
-            for remote in remotes[segment_id]["remotes"]:
-                # TODO Remove
-                if (
-                    remote
-                    == "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git"
-                ):
-                    logger.info(f"Ingesting {remote} for segment {segment_id}")
-                    sqs.ingest_remote(segment_id, integration_id, remote)
-                # sqs.ingest_remote(segment_id, integration_id, remote)
+    for segment_id in remotes:
+        integration_id = remotes[segment_id]["integrationId"]
+        for remote in remotes[segment_id]["remotes"]:
+            if not args.remote or (args.remote == remote):
+                logger.info(f"Ingesting {remote} for segment {segment_id}")
+                sqs.ingest_remote(
+                    segment_id, integration_id, remote, verbose=args.verbose
+                )
 
 
 if __name__ == "__main__":

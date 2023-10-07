@@ -13,6 +13,7 @@ import tqdm
 from fuzzywuzzy import process
 
 import dotenv
+
 dotenv.load_dotenv('.env')
 
 TOKENS = [os.environ[key] for key in os.environ if key.startswith('GITHUB_TOKEN')]
@@ -21,12 +22,15 @@ from crowdgit.repo import get_repo_name, get_new_commits
 from crowdgit.activitymap import ActivityMap
 
 from crowdgit.logger import get_logger
+
 logger = get_logger(__name__)
+
 
 def token_rotator(tokens):
     while True:
         for token in tokens:
             yield token
+
 
 tokens_generator = token_rotator(TOKENS)
 
@@ -36,7 +40,9 @@ def match_activity_name(activity_name: str) -> str:
     return best_match[0] if best_match else None
 
 
-def extract_activities_fuzzy(commit_message: List[str]) -> List[Dict[str, Dict[str, str]]]:
+def extract_activities_fuzzy(
+    commit_message: List[str],
+) -> List[Dict[str, Dict[str, str]]]:
     activities = []
     activity_pattern = re.compile(r'([^:]*):\s*(.*)\s*<(.*)>')
 
@@ -47,12 +53,9 @@ def extract_activities_fuzzy(commit_message: List[str]) -> List[Dict[str, Dict[s
             matched_key = match_activity_name(activity_name.lower())
             if matched_key:
                 for activity in ActivityMap[matched_key]:
-                    activities.append({
-                        activity: {
-                            'name': name.strip(),
-                            'email': email.strip()
-                        }
-                    })
+                    activities.append(
+                        {activity: {'name': name.strip(), 'email': email.strip()}}
+                    )
     return activities
 
 
@@ -84,13 +87,12 @@ def extract_activities(commit_message: List[str]) -> List[Dict[str, Dict[str, st
             activity_name = activity_name.lower()
             if activity_name in ActivityMap:
                 for activity in ActivityMap[activity_name]:
-                    activities.append({
-                        activity: {
-                            "name": name.strip(),
-                            "email": email.strip()
-                        }
-                    })
+                    activities.append(
+                        {activity: {"name": name.strip(), "email": email.strip()}}
+                    )
     return activities
+
+
 # :/prompt:extract-activities
 
 
@@ -136,7 +138,6 @@ def get_github_usernames(commit_sha: str, remote: str) -> list:
     contribs = commit_object.get('authors', {}).get('nodes', [])
     out = []
     for contrib in contribs:
-
         if 'user' not in contrib or not contrib['user']:
             continue
 
@@ -171,7 +172,9 @@ def make_github_activity(activity, commit_hash):
     return activity
 
 
-def save_members_info(remote: str, github_members: List[Dict], git_members: List[Dict]) -> None:
+def save_members_info(
+    remote: str, github_members: List[Dict], git_members: List[Dict]
+) -> None:
     """
     Save member information to a JSON file in the ./members directory.
 
@@ -192,9 +195,11 @@ def save_members_info(remote: str, github_members: List[Dict], git_members: List
 
         matched = False
         for github_member in github_members:
-            if ( git_member['emails'][0] == github_member['emails'][0] or
-                 git_member['displayName'] == github_member['displayName'] or
-                 git_member['username'] == github_member['username'] ):
+            if (
+                git_member['emails'][0] == github_member['emails'][0]
+                or git_member['displayName'] == github_member['displayName']
+                or git_member['username'] == github_member['username']
+            ):
                 github_member['matched'] = True
                 saved_members.update({git_member['emails'][0]: github_member})
                 matched = True
@@ -235,16 +240,16 @@ def get_saved_member(loaded_members: List[Dict], member):
 
 
 # pylint: disable=too-many-branches
-def prepare_crowd_activities(remote: str,
-                             commits: List[Dict] = None,
-                             verbose: bool = False) -> List[Dict]:
-
-    def create_activity(commit: Dict,
-                        activity_type: str,
-                        member: Dict,
-                        source_id: str,
-                        source_parent_id: str = '') -> Dict:
-
+def prepare_crowd_activities(
+    remote: str, commits: List[Dict] = None, verbose: bool = False
+) -> List[Dict]:
+    def create_activity(
+        commit: Dict,
+        activity_type: str,
+        member: Dict,
+        source_id: str,
+        source_parent_id: str = '',
+    ) -> Dict:
         dt = datetime.fromisoformat(commit['datetime'])
 
         return {
@@ -265,7 +270,7 @@ def prepare_crowd_activities(remote: str,
                 'isMainBranch': True,
             },
             'url': remote,
-            'member': member
+            'member': member,
         }
 
     activities = []
@@ -283,29 +288,33 @@ def prepare_crowd_activities(remote: str,
         author = {
             'username': commit['author_name'],
             'displayName': commit['author_name'],
-            'emails': [commit['author_email']]
+            'emails': [commit['author_email']],
         }
         committer = {
             'username': commit['committer_name'],
             'displayName': commit['committer_name'],
-            'emails': [commit['committer_email']]
+            'emails': [commit['committer_email']],
         }
 
         # Add authored-commit activity
-        activities_to_add.append(create_activity(commit,
-                                                 'authored-commit',
-                                                 author,
-                                                 commit['hash']))
+        activities_to_add.append(
+            create_activity(commit, 'authored-commit', author, commit['hash'])
+        )
 
         # Add committed-commit activity if the committer is different from the author
         activities_to_add.append(
-            create_activity(commit,
-                            'committed-commit',
-                            committer,
-                            hashlib.sha1((commit['hash'] +
-                                          'commited-commit' +
-                                          commit['committer_email']).encode('utf-8')).hexdigest(),
-                            commit['hash']))
+            create_activity(
+                commit,
+                'committed-commit',
+                committer,
+                hashlib.sha1(
+                    (
+                        commit['hash'] + 'commited-commit' + commit['committer_email']
+                    ).encode('utf-8')
+                ).hexdigest(),
+                commit['hash'],
+            )
+        )
 
         # Extract and add other activities
         extracted_activities = extract_activities(commit['message'])
@@ -316,17 +325,17 @@ def prepare_crowd_activities(remote: str,
             member = {
                 'username': member_data['name'],
                 'displayName': member_data['name'],
-                'emails': [member_data['email']]
+                'emails': [member_data['email']],
             }
 
-            source_id = hashlib.sha1((commit['hash'] +
-                                      activity_type +
-                                      member_data['email']).encode('utf-8')).hexdigest()
-            activities_to_add.append(create_activity(commit,
-                                              activity_type,
-                                              member,
-                                              source_id,
-                                              commit['hash']))
+            source_id = hashlib.sha1(
+                (commit['hash'] + activity_type + member_data['email']).encode('utf-8')
+            ).hexdigest()
+            activities_to_add.append(
+                create_activity(
+                    commit, activity_type, member, source_id, commit['hash']
+                )
+            )
 
         platform = 'github' if 'github' in remote else 'git'
         if platform == 'github':
@@ -351,16 +360,21 @@ def prepare_crowd_activities(remote: str,
                     activity['member']['username'] = member_info['username']
                     activity['member']['displayName'] = member_info['displayName']
                     activity['member']['emails'] = [
-                        email for email in set(member_info['emails'] +
-                                               activity['member']['emails'])
-                        if 'noreply' not in email]
+                        email
+                        for email in set(
+                            member_info['emails'] + activity['member']['emails']
+                        )
+                        if 'noreply' not in email
+                    ]
                     activity['member']['attributes'] = member_info.get('attributes', {})
 
                 if 'matched' in activity['member']:
                     del activity['member']['matched']
 
-                if ( activity['member']['username'] == 'GitHub' or
-                     '[bot]' in activity['member']['username'] ):
+                if (
+                    activity['member']['username'] == 'GitHub'
+                    or '[bot]' in activity['member']['username']
+                ):
                     activity = make_github_activity(activity, commit['hash'])
                     if 'attributes' not in activity['member']:
                         activity['member']['attributes'] = {}
@@ -372,7 +386,7 @@ def prepare_crowd_activities(remote: str,
         activity['member']['identities'] = [
             {
                 'platform': activity["platform"],
-                'username': activity["member"]["username"]
+                'username': activity["member"]["username"],
             }
         ]
 
@@ -384,15 +398,26 @@ def prepare_crowd_activities(remote: str,
 def main():
     import argparse
 
-    parser = argparse.ArgumentParser(description='Extract activities from commit messages.')
-    parser.add_argument('input_file',
-                        help='Input JSON file containing the list of commit dictionaries.')
-    parser.add_argument('output_file',
-                        help='Output JSON file containing the extracted activities.')
-    parser.add_argument('--crowd-activities', action='store_true',
-                        help='Enable extraction of crowd activities from commit messages.')
-    parser.add_argument('--remote', default='',
-                        help='Remote repository URL for the extracted crowd activities.')
+    parser = argparse.ArgumentParser(
+        description='Extract activities from commit messages.'
+    )
+    parser.add_argument(
+        'input_file', help='Input JSON file containing the list of commit dictionaries.'
+    )
+    parser.add_argument(
+        'output_file', help='Output JSON file containing the extracted activities.'
+    )
+    parser.add_argument(
+        '--crowd-activities',
+        action='store_true',
+        help='Enable extraction of crowd activities from commit messages.',
+    )
+    parser.add_argument(
+        '--remote',
+        default='',
+        help='Remote repository URL for the extracted crowd activities.',
+    )
+    parser.add_argument('--verbose', action='store_true', help='Verbose output.')
     args = parser.parse_args()
 
     with open(args.input_file, 'r', encoding='utf-8') as input_file:
@@ -403,10 +428,14 @@ def main():
 
     if args.crowd_activities:
         if not args.remote:
-            print("Error: The --remote argument is required when using --crowd-activities.")
+            print(
+                "Error: The --remote argument is required when using --crowd-activities."
+            )
             return
 
-        output_data = prepare_crowd_activities(args.remote, commits, verbose=True)
+        output_data = prepare_crowd_activities(
+            args.remote, commits, verbose=args.verbose
+        )
     else:
         activities_by_commit = {}
         for commit in tqdm.tqdm(commits, desc="Processing commits"):
@@ -417,10 +446,12 @@ def main():
         output_data = activities_by_commit
 
     end_time = time.time()
-    logger.info('%d activities extracted in %d s (%.1f min)',
-                 len(output_data),
-                 int(end_time - start_time),
-                 (end_time - start_time) / 60)
+    logger.info(
+        '%d activities extracted in %d s (%.1f min)',
+        len(output_data),
+        int(end_time - start_time),
+        (end_time - start_time) / 60,
+    )
 
     with open(args.output_file, 'w', encoding='utf-8') as output_file:
         json.dump(output_data, output_file, indent=2, ensure_ascii=False)
