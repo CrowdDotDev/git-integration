@@ -153,7 +153,7 @@ def store_bad_commits(commit_lines: str, repo_path: str):
         logger.info('Storing bad commits in %s: %s', bad_commits_file, commit_lines)
         with open(bad_commits_file, 'a', encoding='utf-8') as fout:
             fout.write(commit_lines)
-            fout.write('-------------')
+            fout.write('\n-------------\n')
 
 
 def get_commits(
