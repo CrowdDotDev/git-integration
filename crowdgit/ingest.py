@@ -92,19 +92,17 @@ class SQS:
 
         for record in commits_iter:
             deduplication_id = str(uuid())
-            message_id = (
-                f"{os.environ['TENANT_ID']}-{operation}-{platform}-{deduplication_id}"
-            )
+            message_id = f"{os.environ['TENANT_ID']}-{operation}-{platform}-{deduplication_id}"
 
             body = get_body_json(record)
 
-            response = self.sqs.send_message(
-                QueueUrl=self.sqs_url,
-                MessageAttributes={},
-                MessageBody=body,
-                MessageGroupId=message_id,
-                MessageDeduplicationId=deduplication_id,
-            )
+            #! response = self.sqs.send_message(
+            #!     QueueUrl=self.sqs_url,
+            #!     MessageAttributes={},
+            #!     MessageBody=body,
+            #!     MessageGroupId=message_id,
+            #!     MessageDeduplicationId=deduplication_id,
+            #! )
 
             # A response should be something like this:
             #
@@ -119,13 +117,14 @@ class SQS:
             #                       'RequestId': 'fbee9fd0-8041-5289-8ba3-c30551dc5ad3',
             #                       'RetryAttempts': 0},
             #  'SequenceNumber': '18877781119960559616'}
-            status_code = response["ResponseMetadata"]["HTTPStatusCode"]
-            if status_code == 200:
-                responses.append(response)
-            else:
-                logger.error(
-                    "Received a %d status code from SQS with %s", status_code, body
-                )
+
+            #!status_code = response["ResponseMetadata"]["HTTPStatusCode"]
+            #!if status_code == 200:
+            #!    responses.append(response)
+            #!else:
+            #!    logger.error(
+            #!        "Received a %d status code from SQS with %s", status_code, body
+            #!    )
 
         return responses
 
@@ -150,9 +149,7 @@ class SQS:
         try:
             activities = prepare_crowd_activities(remote, verbose=verbose)
         except Exception as e:
-            logger.error(
-                "Failed trying to prepare activities for %s. Error:\n%s", remote, str(e)
-            )
+            logger.error("Failed trying to prepare activities for %s. Error:\n%s", remote, str(e))
             if os.path.exists(semaphore):
                 os.remove(semaphore)
             return
@@ -196,9 +193,7 @@ def main():
         for remote in remotes[segment_id]["remotes"]:
             if not args.remote or (args.remote == remote):
                 logger.info(f"Ingesting {remote} for segment {segment_id}")
-                sqs.ingest_remote(
-                    segment_id, integration_id, remote, verbose=args.verbose
-                )
+                sqs.ingest_remote(segment_id, integration_id, remote, verbose=args.verbose)
 
 
 if __name__ == "__main__":
