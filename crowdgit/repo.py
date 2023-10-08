@@ -117,9 +117,7 @@ def clone_repo(remote: str, repos_dir: str) -> None:
     repo_path = get_local_repo(remote, repos_dir)
 
     if os.path.exists(repo_path):
-        raise E.CrowdGitError(
-            f'Error creating {repo_path}: not overwriting existing directory'
-        )
+        raise E.CrowdGitError(f'Error creating {repo_path}: not overwriting existing directory')
 
     try:
         if not os.path.exists(repo_path):
@@ -149,14 +147,13 @@ def store_bad_commits(commit_lines: str, repo_path: str):
     if not os.path.exists(BAD_COMMITS_DIR):
         os.makedirs(BAD_COMMITS_DIR)
 
-    bad_commits_file = (
-        os.path.join(BAD_COMMITS_DIR, os.path.basename(repo_path)) + '.txt'
-    )
+    bad_commits_file = os.path.join(BAD_COMMITS_DIR, os.path.basename(repo_path)) + '.txt'
 
-    logger.info('Storing bad commits in %s: %s', bad_commits_file, commit_lines)
-    with open(bad_commits_file, 'a', encoding='utf-8') as fout:
-        fout.write(commit_lines)
-        fout.write('-------------')
+    if commit_lines.strip():
+        logger.info('Storing bad commits in %s: %s', bad_commits_file, commit_lines)
+        with open(bad_commits_file, 'a', encoding='utf-8') as fout:
+            fout.write(commit_lines)
+            fout.write('-------------')
 
 
 def get_commits(
@@ -211,16 +208,12 @@ def get_commits(
         git_log_command.append(f'--until={until}')
 
     # Set core.abbrevCommit to false to avoid truncating commit messages
-    subprocess.check_output(
-        ['git', '-C', repo_path, 'config', 'core.abbrevCommit', 'false']
-    )
+    subprocess.check_output(['git', '-C', repo_path, 'config', 'core.abbrevCommit', 'false'])
 
     start_time = time.time()
     try:
         commits_output = (
-            subprocess.check_output(git_log_command)
-            .decode('utf-8', errors='replace')
-            .strip()
+            subprocess.check_output(git_log_command).decode('utf-8', errors='replace').strip()
         )
     except Exception as e:
         logger.error(
@@ -263,9 +256,7 @@ def get_commits(
         ref_names = commit_lines[7].strip()
         commit_message = commit_lines[8:]
 
-        if not (
-            is_valid_commit_hash(commit_hash) and is_valid_datetime(commit_datetime)
-        ):
+        if not (is_valid_commit_hash(commit_hash) and is_valid_datetime(commit_datetime)):
             logger.error(
                 'Invalid commit data found: hash=%s, datetime=%s',
                 commit_hash,
@@ -346,16 +337,12 @@ def get_insertions_deletions(
         git_log_command.append(f'--until={until}')
 
     # Set core.abbrevCommit to false to avoid truncating commit messages
-    subprocess.check_output(
-        ['git', '-C', repo_path, 'config', 'core.abbrevCommit', 'false']
-    )
+    subprocess.check_output(['git', '-C', repo_path, 'config', 'core.abbrevCommit', 'false'])
 
     start_time = time.time()
     try:
         commits_output = (
-            subprocess.check_output(git_log_command)
-            .decode('utf-8', errors='replace')
-            .strip()
+            subprocess.check_output(git_log_command).decode('utf-8', errors='replace').strip()
         )
     except:
         return {}
@@ -379,16 +366,14 @@ def get_insertions_deletions(
 
         if len(commit_lines) < 2:
             bad_commits += 1
-            store_bad_commits(commits_output, repo_path)
+            store_bad_commits(commit_text, repo_path)
             continue
 
         commit_hash = commit_lines[0]
         if not is_valid_commit_hash(commit_hash):
-            logger.error(
-                'Invalid insertions/deletions hash found: hash=%s', commit_hash
-            )
+            logger.error('Invalid insertions/deletions hash found: hash=%s', commit_hash)
             bad_commits += 1
-            store_bad_commits(commits_output, repo_path)
+            store_bad_commits(commit_text, repo_path)
             continue
 
         insertions_deletions = commit_lines[1:]
@@ -419,9 +404,7 @@ def get_insertions_deletions(
 
 
 # :prompt:get-new-commits
-def get_new_commits(
-    remote: str, repos_dir: str = REPOS_DIR, verbose: bool = False
-) -> List[Dict]:
+def get_new_commits(remote: str, repos_dir: str = REPOS_DIR, verbose: bool = False) -> List[Dict]:
     """Get new commits from the remote repository.
     :param remote: The remote repository URL.
     :param repos_dir: The local directory where repositories are stored (default: REPOS_DIR).
@@ -442,14 +425,9 @@ def get_new_commits(
     """
     repo_path = get_local_repo(remote, repos_dir)
 
-    def _add_insertions_deletions(
-        commits: List, insertions_deletions: Dict
-    ) -> List[Dict]:
+    def _add_insertions_deletions(commits: List, insertions_deletions: Dict) -> List[Dict]:
         return [
-            commit
-            | insertions_deletions.get(
-                commit['hash'], {'insertions': 0, 'deletions': 0}
-            )
+            commit | insertions_deletions.get(commit['hash'], {'insertions': 0, 'deletions': 0})
             for commit in commits
         ]
 
@@ -503,9 +481,7 @@ def main():
     import argparse
     import json
 
-    parser = argparse.ArgumentParser(
-        description='Get commit data from Git repositories.'
-    )
+    parser = argparse.ArgumentParser(description='Get commit data from Git repositories.')
     subparsers = parser.add_subparsers(dest='command')
 
     get_commits_parser = subparsers.add_parser('get-commits')
@@ -517,18 +493,12 @@ def main():
     get_commits_parser.add_argument('--until', help='End date to fetch commits.')
 
     get_insertions_deletions_parser = subparsers.add_parser('get-insertions-deletions')
-    get_insertions_deletions_parser.add_argument(
-        'repo_path', help='Local path to the repository.'
-    )
+    get_insertions_deletions_parser.add_argument('repo_path', help='Local path to the repository.')
     get_insertions_deletions_parser.add_argument(
         '--new-only', action='store_true', help='Get only new commits.'
     )
-    get_insertions_deletions_parser.add_argument(
-        '--since', help='Starting date to fetch commits.'
-    )
-    get_insertions_deletions_parser.add_argument(
-        '--until', help='End date to fetch commits.'
-    )
+    get_insertions_deletions_parser.add_argument('--since', help='Starting date to fetch commits.')
+    get_insertions_deletions_parser.add_argument('--until', help='End date to fetch commits.')
 
     get_new_commits_parser = subparsers.add_parser('get-new-commits')
     get_new_commits_parser.add_argument('remote', help='Remote repository URL.')
@@ -542,9 +512,7 @@ def main():
         ),
     )
 
-    parser.add_argument(
-        '--output', required=True, help='Output JSON file to store the results.'
-    )
+    parser.add_argument('--output', required=True, help='Output JSON file to store the results.')
 
     args = parser.parse_args()
 

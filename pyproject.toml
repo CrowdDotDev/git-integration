@@ -42,3 +42,7 @@ addopts = "--doctest-modules --ignore=setup.py --ignore=build --ignore=doc --ign
 pythonpath = [
   "."
 ]
+
+[tool.black]
+line-length = 99
+target-version = ['py310']
