@@ -96,13 +96,13 @@ class SQS:
 
             body = get_body_json(record)
 
-            #! response = self.sqs.send_message(
-            #!     QueueUrl=self.sqs_url,
-            #!     MessageAttributes={},
-            #!     MessageBody=body,
-            #!     MessageGroupId=message_id,
-            #!     MessageDeduplicationId=deduplication_id,
-            #! )
+            response = self.sqs.send_message(
+                QueueUrl=self.sqs_url,
+                MessageAttributes={},
+                MessageBody=body,
+                MessageGroupId=message_id,
+                MessageDeduplicationId=deduplication_id,
+            )
 
             # A response should be something like this:
             #
@@ -118,13 +118,11 @@ class SQS:
             #                       'RetryAttempts': 0},
             #  'SequenceNumber': '18877781119960559616'}
 
-            #!status_code = response["ResponseMetadata"]["HTTPStatusCode"]
-            #!if status_code == 200:
-            #!    responses.append(response)
-            #!else:
-            #!    logger.error(
-            #!        "Received a %d status code from SQS with %s", status_code, body
-            #!    )
+            status_code = response["ResponseMetadata"]["HTTPStatusCode"]
+            if status_code == 200:
+                responses.append(response)
+            else:
+                logger.error("Received a %d status code from SQS with %s", status_code, body)
 
         return responses
 
