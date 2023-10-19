@@ -18,7 +18,8 @@ dependencies = [
     "python-Levenshtein",
     "boto3",
     "python-json-logger",
-    "python-dotenv"
+    "python-dotenv",
+    "gitpython"
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
