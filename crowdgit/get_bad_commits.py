@@ -41,12 +41,10 @@ def send_api_call(endpoint, body=None, method="POST"):
 
 
 def get_commit_info(repo, segment_id, integration_id, remote, commit_id, repo_path="."):
-    print(commit_id)
     try:
         commit = repo.commit(commit_id)
     except Exception as e:
         print(f"Error: {e}")
-        commit = None
         return
 
     # Author's name
@@ -69,7 +67,13 @@ def get_commit_info(repo, segment_id, integration_id, remote, commit_id, repo_pa
 
     # extract insertions and deletions
     g = Git(repo_path)
-    stats = g.execute(["git", "diff", "--numstat", commit_id + "^", commit_id]).split("\n")[:-1]
+    try:
+        stats = g.execute(["git", "diff", "--numstat", commit_id + "^", commit_id]).split("\n")[
+            :-1
+        ]
+    except Exception as e:
+        print(f"Error: {e}")
+        return
     insertions, deletions = 0, 0
     for stat in stats:
         ins, del_, _ = stat.split("\t")
