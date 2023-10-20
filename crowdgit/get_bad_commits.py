@@ -41,6 +41,7 @@ def send_api_call(endpoint, body=None, method="POST"):
 
 
 def get_commit_info(repo, segment_id, integration_id, remote, commit_id, repo_path="."):
+    print(commit_id)
     commit = repo.commit(commit_id)
 
     # Author's name
