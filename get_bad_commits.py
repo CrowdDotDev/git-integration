@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 import time
 
 
-def send_post_api_call(endpoint, body):
+def send_api_call(endpoint, body=None, method="POST"):
     load_dotenv()
 
     CROWD_API_KEY = os.getenv("CROWD_API_KEY")
@@ -18,35 +18,28 @@ def send_post_api_call(endpoint, body):
     headers = {"Content-Type": "application/json", "Authorization": f"Bearer {CROWD_API_KEY}"}
 
     url = f"{protocol}://{CROWD_HOST}/api/tenant/{TENANT_ID}/{endpoint}"
+    
+    try:
+        if method == "POST":
+            response = requests.request(method, url, headers=headers, data=json.dumps(body), timeout=30)
+        else:
+            response = requests.request(method, url, headers=headers, timeout=30)
+        if response.status_code != 200:
+            pp(body)
+            raise Exception(
+                f"Request failed with status code {response.status_code}, error: {response.text}"
+            )
+        return response.json()
+    except exception as e:
+        print("Exception", e)
+        print("Method", method)
+        print("Body", body)
+        return False
 
-    response = requests.request("POST", url, headers=headers, data=json.dumps(body))
-    time.sleep(0.25)
-    if response.status_code != 200:
-        pp(body)
-        raise Exception(
-            f"Request failed with status code {response.status_code}, error: {response.text}"
-        )
-    return response.json()
 
-
-def get_commit_info(commit_id, repo_path="."):
-    repo = Repo(repo_path)
+def get_commit_info(repo, segment_id, remote, commit_id, repo_path="."):
     commit = repo.commit(commit_id)
 
-    remote = repo.remotes.origin.url
-
-    endpoint = "activity/query"
-    body = {
-        "filter": {"channel": remote},
-        "limit": 1,
-        "offset": 0,
-    }
-
-    response_data = send_post_api_call(endpoint, body)
-    if len(response_data["rows"]):
-        segment_id = response_data["rows"][0]["segmentId"]
-    else:
-        segment_id = ""
 
     # Author's name
     author_name = commit.author.name
@@ -100,7 +93,11 @@ def get_commit_info(commit_id, repo_path="."):
         "segments": [segment_id],
     }
 
-    send_post_api_call("activity/with-member", activity)
+    response = send_api_call("activity/with-member", activity)
+    
+    if not response:
+        return False
+    return True
 
 
 def parse_commit_file(commit_file_path, repo_path):
@@ -110,12 +107,33 @@ def parse_commit_file(commit_file_path, repo_path):
     commits = commit_data.split("-------------\n")
     commits = [commit.strip() for commit in commits if commit.strip()]
 
-    commit_infos = []
+    repo = Repo(repo_path)
+    remote = repo.remotes.origin.url
+    endpoint = "git"
+
+    print(f"Processing {remote}")
+
+    response_data = send_api_call(endpoint, {}, method="GET")
+
+    segment_id = None
+    for id, data in response_data.items():
+        if remote in data['remotes']:
+            segment_id = id
+            break
+
+    if segment_id is None:
+        print("No segment")
+        return
+
+    bad_commits = []
     for commit in tqdm(commits):
         commit_id = commit.split("\n")[0]
-        get_commit_info(commit_id, repo_path)
+        commit_info = get_commit_info(repo, segment_id, remote, commit_id, repo_path)
+        if not commit_info:
+            bad_commits.append(commit_id)
+    return bad_commits
 
-    return commit_infos
+
 
 
 if __name__ == "__main__":
@@ -123,9 +141,8 @@ if __name__ == "__main__":
 
     commit_files = glob.glob("../local/bad-commits/[!DONE]*.txt")
     for commit_file_path in commit_files:
-        print(f"Processing {commit_file_path}")
         repo_path = "../local/repos/" + os.path.basename(commit_file_path).replace(".txt", "")
-        parse_commit_file(commit_file_path, repo_path)
+        bad_commits = parse_commit_file(commit_file_path, repo_path)
         os.rename(
             commit_file_path,
             "../local/bad-commits/DONE_"
@@ -133,3 +150,9 @@ if __name__ == "__main__":
             + "_"
             + os.path.basename(commit_file_path),
         )
+        with open("../local/bad-commits/" + os.path.basename(commit_file_path), "w") as f:
+            for commit in bad_commits:
+                f.write(commit + "-------------\n")
+        break
+        
+
