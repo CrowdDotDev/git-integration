@@ -112,7 +112,7 @@ def parse_commit_file(commit_file_path, repo_path):
         commit_data = f.read()
 
     commits = commit_data.split("-------------\n")
-    commits = [commit.strip() for commit in commits if commit.strip()]
+    commits = [commit.replace("-", "").strip() for commit in commits if commit.strip()]
 
     repo = Repo(repo_path)
     remote = repo.remotes.origin.url
