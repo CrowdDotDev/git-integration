@@ -32,7 +32,7 @@ def send_api_call(endpoint, body=None, method="POST"):
                 f"Request failed with status code {response.status_code}, error: {response.text}"
             )
         return response.json()
-    except exception as e:
+    except Exception as e:
         print("Exception", e)
         print("Method", method)
         print("Body", body)
