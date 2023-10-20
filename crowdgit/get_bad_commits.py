@@ -4,6 +4,7 @@ import os
 import requests
 import json
 from tqdm import tqdm
+from crowdgit.ingest import SQS
 from dotenv import load_dotenv
 import time
 
@@ -39,7 +40,7 @@ def send_api_call(endpoint, body=None, method="POST"):
         return False
 
 
-def get_commit_info(repo, segment_id, remote, commit_id, repo_path="."):
+def get_commit_info(repo, segment_id, integration_id, remote, commit_id, repo_path="."):
     commit = repo.commit(commit_id)
 
     # Author's name
@@ -77,6 +78,7 @@ def get_commit_info(repo, segment_id, remote, commit_id, repo_path="."):
         "type": "authored-commit",
         "channel": remote,
         "platform": "git",
+        "isContribution": True,
         "attributes": {
             "insertions": insertions,
             "deletions": deletions,
@@ -88,17 +90,21 @@ def get_commit_info(repo, segment_id, remote, commit_id, repo_path="."):
             "timezone": timezone,
         },
         "member": {
-            "username": author_name if author_name else author_email,
+            "identities": [
+                {
+                    "platform": "git",
+                    "username": author_name if author_name else author_email,
+                }
+            ],
             "emails": [author_email],
+            "displayName": author_name if author_name else author_email,
         },
         "segments": [segment_id],
     }
 
-    response = send_api_call("activity/with-member", activity)
+    sqs = SQS()
 
-    if not response:
-        return False
-    return True
+    return sqs.send_messages(segment_id, integration_id, [activity])
 
 
 def parse_commit_file(commit_file_path, repo_path):
@@ -117,9 +123,11 @@ def parse_commit_file(commit_file_path, repo_path):
     response_data = send_api_call(endpoint, {}, method="GET")
 
     segment_id = None
+    integration_id = None
     for id, data in response_data.items():
         if remote in data["remotes"]:
             segment_id = id
+            integration_id = data["integrationId"]
             break
 
     if segment_id is None:
@@ -129,27 +137,30 @@ def parse_commit_file(commit_file_path, repo_path):
     bad_commits = []
     for commit in tqdm(commits):
         commit_id = commit.split("\n")[0]
-        commit_info = get_commit_info(repo, segment_id, remote, commit_id, repo_path)
+        commit_info = get_commit_info(
+            repo, segment_id, integration_id, remote, commit_id, repo_path
+        )
         if not commit_info:
             bad_commits.append(commit_id)
     return bad_commits
 
 
-if __name__ == "__main__":
+def main():
     import glob
+    from crowdgit import LOCAL_DIR
 
-    commit_files = glob.glob("../local/bad-commits/[!DONE]*.txt")
+    commit_files = glob.glob(f"{LOCAL_DIR}/bad-commits/[!DONE]*.txt")
     for commit_file_path in commit_files:
-        repo_path = "../local/repos/" + os.path.basename(commit_file_path).replace(".txt", "")
-        bad_commits = parse_commit_file(commit_file_path, repo_path)
+        repo_path = f"{LOCAL_DIR}/repos/" + os.path.basename(commit_file_path).replace(".txt", "")
+        parse_commit_file(commit_file_path, repo_path)
         os.rename(
             commit_file_path,
-            "../local/bad-commits/DONE_"
+            f"{LOCAL_DIR}/bad-commits/DONE_"
             + time.strftime("%Y%m%d")
             + "_"
             + os.path.basename(commit_file_path),
         )
-        with open("../local/bad-commits/" + os.path.basename(commit_file_path), "w") as f:
-            for commit in bad_commits:
-                f.write(commit + "-------------\n")
-        break
+
+
+if __name__ == "__main__":
+    main()

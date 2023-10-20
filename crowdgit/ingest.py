@@ -155,7 +155,7 @@ class SQS:
         try:
             self.send_messages(segment_id, integration_id, activities, verbose=verbose)
         except:
-            logger.error('Failed trying to send messages for %s', remote)
+            logger.error("Failed trying to send messages for %s", remote)
         finally:
             if os.path.exists(semaphore):
                 os.remove(semaphore)
@@ -168,14 +168,14 @@ class SQS:
 def main():
     import argparse
 
-    parser = argparse.ArgumentParser(description='Ingest remote.')
+    parser = argparse.ArgumentParser(description="Ingest remote.")
     parser.add_argument(
-        '--remote',
+        "--remote",
         type=str,
-        default='',
-        help='Remote url. Will only ingest a remote comming from the tenant that matches it.',
+        default="",
+        help="Remote url. Will only ingest a remote comming from the tenant that matches it.",
     )
-    parser.add_argument('--verbose', action='store_true', help='Verbose output.')
+    parser.add_argument("--verbose", action="store_true", help="Verbose output.")
     args = parser.parse_args()
 
     sqs = SQS()

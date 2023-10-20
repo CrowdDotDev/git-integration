@@ -37,6 +37,7 @@ dev = [
 
 [project.scripts]
 crowd-git-ingest = "crowdgit.ingest:main"
+crowd-git-bad-commits = "crowdgit.get_bad_commits:main"
 
 [tool.pytest.ini_options]
 addopts = "--doctest-modules --ignore=setup.py --ignore=build --ignore=doc --ignore=flymake"
