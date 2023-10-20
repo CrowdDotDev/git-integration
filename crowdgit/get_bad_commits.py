@@ -42,7 +42,12 @@ def send_api_call(endpoint, body=None, method="POST"):
 
 def get_commit_info(repo, segment_id, integration_id, remote, commit_id, repo_path="."):
     print(commit_id)
-    commit = repo.commit(commit_id)
+    try:
+        commit = repo.commit(commit_id)
+    except Exception as e:
+        print(f"Error: {e}")
+        commit = None
+        return
 
     # Author's name
     author_name = commit.author.name
