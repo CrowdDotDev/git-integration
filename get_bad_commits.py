@@ -18,10 +18,12 @@ def send_api_call(endpoint, body=None, method="POST"):
     headers = {"Content-Type": "application/json", "Authorization": f"Bearer {CROWD_API_KEY}"}
 
     url = f"{protocol}://{CROWD_HOST}/api/tenant/{TENANT_ID}/{endpoint}"
-    
+
     try:
         if method == "POST":
-            response = requests.request(method, url, headers=headers, data=json.dumps(body), timeout=30)
+            response = requests.request(
+                method, url, headers=headers, data=json.dumps(body), timeout=30
+            )
         else:
             response = requests.request(method, url, headers=headers, timeout=30)
         if response.status_code != 200:
@@ -39,7 +41,6 @@ def send_api_call(endpoint, body=None, method="POST"):
 
 def get_commit_info(repo, segment_id, remote, commit_id, repo_path="."):
     commit = repo.commit(commit_id)
-
 
     # Author's name
     author_name = commit.author.name
@@ -94,7 +95,7 @@ def get_commit_info(repo, segment_id, remote, commit_id, repo_path="."):
     }
 
     response = send_api_call("activity/with-member", activity)
-    
+
     if not response:
         return False
     return True
@@ -117,7 +118,7 @@ def parse_commit_file(commit_file_path, repo_path):
 
     segment_id = None
     for id, data in response_data.items():
-        if remote in data['remotes']:
+        if remote in data["remotes"]:
             segment_id = id
             break
 
@@ -132,8 +133,6 @@ def parse_commit_file(commit_file_path, repo_path):
         if not commit_info:
             bad_commits.append(commit_id)
     return bad_commits
-
-
 
 
 if __name__ == "__main__":
@@ -154,5 +153,3 @@ if __name__ == "__main__":
             for commit in bad_commits:
                 f.write(commit + "-------------\n")
         break
-        
-
