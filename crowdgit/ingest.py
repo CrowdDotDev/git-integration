@@ -186,6 +186,9 @@ def main():
         os.environ["CROWD_API_KEY"],
     )
 
+    from pprint import pprint as pp
+    pp(remotes)
+
 
     for segment_id in remotes:
         integration_id = remotes[segment_id]["integrationId"]
