@@ -190,8 +190,9 @@ def main():
 
     for segment_id in remotes:
         integration_id = remotes[segment_id]["integrationId"]
-        print('integrationId', integration_id)
         for remote in remotes[segment_id]["remotes"]:
+            print('remote', remote)
+            print('args remote', args.remote or (args.remote == remote))
             if not args.remote or (args.remote == remote):
                 logger.info(f"Ingesting {remote} for segment {segment_id}")
                 sqs.ingest_remote(segment_id, integration_id, remote, verbose=args.verbose)
