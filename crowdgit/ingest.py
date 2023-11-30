@@ -193,8 +193,7 @@ def main():
     for segment_id in remotes:
         integration_id = remotes[segment_id]["integrationId"]
         for remote in remotes[segment_id]["remotes"]:
-            if not args.remote or (args.remote == remote):
-                print('HERE ')
+            if not args.remote or (args.remote.rstrip('.git') == remote.rstrip('.git')):
                 logger.info(f"Ingesting {remote} for segment {segment_id}")
                 sqs.ingest_remote(segment_id, integration_id, remote, verbose=args.verbose)
 
