@@ -180,18 +180,17 @@ def main():
 
     sqs = SQS()
 
-    print('Getting remotes')
-
     remotes = get_remotes(
         os.environ["CROWD_HOST"],
         os.environ["TENANT_ID"],
         os.environ["CROWD_API_KEY"],
     )
 
-    print(remotes)
+    print('got remotes')
 
     for segment_id in remotes:
         integration_id = remotes[segment_id]["integrationId"]
+        print('integrationId', integration_id)
         for remote in remotes[segment_id]["remotes"]:
             if not args.remote or (args.remote == remote):
                 logger.info(f"Ingesting {remote} for segment {segment_id}")
