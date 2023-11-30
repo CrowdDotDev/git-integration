@@ -186,14 +186,12 @@ def main():
         os.environ["CROWD_API_KEY"],
     )
 
-    import json
-    remotes_str = json.dumps(remotes)
-    print(args.remote in remotes_str)
 
     for segment_id in remotes:
         integration_id = remotes[segment_id]["integrationId"]
         for remote in remotes[segment_id]["remotes"]:
             if not args.remote or (args.remote == remote):
+                print('HERE ')
                 logger.info(f"Ingesting {remote} for segment {segment_id}")
                 sqs.ingest_remote(segment_id, integration_id, remote, verbose=args.verbose)
 
