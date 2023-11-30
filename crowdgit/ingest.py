@@ -192,7 +192,8 @@ def main():
         integration_id = remotes[segment_id]["integrationId"]
         for remote in remotes[segment_id]["remotes"]:
             print('remote', remote)
-            print('args remote', args.remote or (args.remote == remote))
+            print('not args.remote', not args.remote)
+            print('args.remote' == remote)
             if not args.remote or (args.remote == remote):
                 logger.info(f"Ingesting {remote} for segment {segment_id}")
                 sqs.ingest_remote(segment_id, integration_id, remote, verbose=args.verbose)
