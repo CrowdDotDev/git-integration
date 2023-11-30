@@ -180,11 +180,15 @@ def main():
 
     sqs = SQS()
 
+    print('Getting remotes')
+
     remotes = get_remotes(
         os.environ["CROWD_HOST"],
         os.environ["TENANT_ID"],
         os.environ["CROWD_API_KEY"],
     )
+
+    print(remotes)
 
     for segment_id in remotes:
         integration_id = remotes[segment_id]["integrationId"]
