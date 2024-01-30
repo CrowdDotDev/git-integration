@@ -108,7 +108,7 @@ ActivityMap = {
 		'co-developed-by':                        ['Co-authored-by'],
 		'co-developed-with':                      ['Co-authored-by'],
 		'committed':                              ['Committed-by'],
-		'committed-by':                           ['Co-authored-by', 'Committed-by'],
+		'committed-by':                           ['Committed-by'],
 		'compile-tested-by':                      ['Tested-by'],
 		'compiled-by':                            ['Tested-by'],
 		'compiled-tested-by':                     ['Tested-by'],
