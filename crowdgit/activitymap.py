@@ -342,7 +342,6 @@ ActivityMap = {
 		'tested-by':                                      ['Tested-by'],
 		'tested-off':                                     ['Tested-by'],
 		'thanks-to':                                      ['Influenced-by', 'Informed-by'],
-		'to':                                             ['Informed-by'],
 		'tracked-by':                                     ['Tested-by'],
 		'tracked-down-by':                                ['Tested-by'],
 		'was-acked-by':                                   ['Reviewed-by'],
