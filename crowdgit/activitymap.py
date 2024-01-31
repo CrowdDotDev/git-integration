@@ -93,7 +93,6 @@ ActivityMap = {
 		'caught-by':                              ['Reported-by'],
 		'cause-discovered-by':                    ['Reported-by'],
 		'cautiously-acked-by':                    ['Reviewed-by'],
-		'cc':                                     ['Informed-by'],
 		'celebrated-by':                          ['Reviewed-by'],
 		'changelog-cribbed-from':                 ['Influenced-by'],
 		'changelog-heavily-inspired-by':          ['Influenced-by'],
