@@ -199,7 +199,7 @@ def get_commits(
         repo_path,
         'log',
         commit_range,
-        f'--pretty=format:%H%n%cI%n%an%n%ae%n%cn%n%ce%n%P%n%d%n%B%n{splitter}',
+        f'--pretty=format:%H%n%aI%n%an%n%ae%n%cI%cn%n%ce%n%P%n%d%n%B%n{splitter}',
     ]
 
     if since:
@@ -247,14 +247,15 @@ def get_commits(
             continue
 
         commit_hash = commit_lines[0]
-        commit_datetime = commit_lines[1]
+        author_datetime = commit_lines[1]
         author_name = commit_lines[2]
         author_email = commit_lines[3]
-        committer_name = commit_lines[4]
-        committer_email = commit_lines[5]
-        parent_hashes = commit_lines[6].split()
-        ref_names = commit_lines[7].strip()
-        commit_message = commit_lines[8:]
+        commit_datetime = commit_lines[4]
+        committer_name = commit_lines[5]
+        committer_email = commit_lines[6]
+        parent_hashes = commit_lines[7].split()
+        ref_names = commit_lines[8].strip()
+        commit_message = commit_lines[9:]
 
         if not (is_valid_commit_hash(commit_hash) and is_valid_datetime(commit_datetime)):
             logger.error(
@@ -272,9 +273,10 @@ def get_commits(
         commits.append(
             {
                 'hash': commit_hash,
-                'datetime': commit_datetime,
+                'author_datetime': author_datetime,
                 'author_name': author_name,
                 'author_email': author_email,
+                'committer_datetime': commit_datetime,
                 'committer_name': committer_name,
                 'committer_email': committer_email,
                 'is_main_branch': is_main_branch,

@@ -250,7 +250,12 @@ def prepare_crowd_activities(
         source_id: str,
         source_parent_id: str = '',
     ) -> Dict:
-        dt = datetime.fromisoformat(commit['datetime'])
+        # if this is an "author" activity, the source_parent_id is ''
+        if source_parent_id == '':
+            timestamp = commit['author_datetime']
+        else
+            timestamp = commit['committer_datetime']
+        dt = datetime.fromisoformat(timestamp)
 
         # Check if username or displayName is None, an empty string, or not an actual name
         if not member["username"]:
@@ -260,7 +265,7 @@ def prepare_crowd_activities(
 
         return {
             'type': activity_type,
-            'timestamp': commit['datetime'],
+            'timestamp': timestamp,
             'sourceId': source_id,
             'sourceParentId': source_parent_id,
             'platform': 'git',
