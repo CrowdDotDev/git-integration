@@ -241,15 +241,14 @@ def get_commits(
         commits_iter = commits_texts
 
     for commit_text in commits_iter:
+        print("commit text")
+        print(commit_text)
+        print("\n\n\n")
         commit_lines = commit_text.strip().splitlines()
         if len(commit_lines) < 8:
             bad_commits += 1
             store_bad_commits(commit_text, repo_path)
             continue
-
-        from pprint import pprint as pp
-
-        pp(commit_lines)
 
         commit_hash = commit_lines[0]
         author_datetime = commit_lines[1]
