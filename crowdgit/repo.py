@@ -151,7 +151,7 @@ def store_bad_commits(commit_lines: str, repo_path: str):
     bad_commits_file = os.path.join(BAD_COMMITS_DIR, os.path.basename(repo_path)) + ".txt"
 
     if commit_lines.strip():
-        logger.info("Storing bad commits in %s: %s", bad_commits_file)
+        logger.info("Storing bad commits in %s", bad_commits_file)
         with open(bad_commits_file, "a", encoding="utf-8") as fout:
             fout.write(commit_lines)
             fout.write("\n-------------\n")
