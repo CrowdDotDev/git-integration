@@ -200,7 +200,7 @@ def get_commits(
         repo_path,
         "log",
         commit_range,
-        f"--pretty=format:%H%n%aI%n%an%n%ae%n%cI%cn%n%ce%n%P%n%d%n%B%n{splitter}",
+        f"--pretty=format:%H%n%aI%n%an%n%ae%n%cI%n%cn%n%ce%n%P%n%d%n%B%n{splitter}",
     ]
 
     if since:
