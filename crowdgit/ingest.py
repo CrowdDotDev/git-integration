@@ -148,7 +148,7 @@ class SQS:
             activities = prepare_crowd_activities(remote, verbose=verbose)
             from pprint import pprint as pp
 
-            print(f"Found {activities.length} for {remote}")
+            print(f"Found {len(activities)} for {remote}")
             pp(activities[:5])
         except Exception as e:
             logger.error("Failed trying to prepare activities for %s. Error:\n%s", remote, str(e))
