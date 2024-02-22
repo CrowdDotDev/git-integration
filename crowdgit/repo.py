@@ -247,6 +247,10 @@ def get_commits(
             store_bad_commits(commit_text, repo_path)
             continue
 
+        from pprint import pprint as pp
+
+        pp(commit_lines)
+
         commit_hash = commit_lines[0]
         author_datetime = commit_lines[1]
         author_name = commit_lines[2]
