@@ -146,19 +146,17 @@ class SQS:
 
         try:
             activities = prepare_crowd_activities(remote, verbose=verbose)
-            from pprint import pprint as pp
 
-            print(f"Found {len(activities)} for {remote}")
-            pp(activities[:5])
         except Exception as e:
             logger.error("Failed trying to prepare activities for %s. Error:\n%s", remote, str(e))
+            raise e
             if os.path.exists(semaphore):
                 os.remove(semaphore)
             return
 
         try:
-            print("Skipping messages")
-            # self.send_messages(segment_id, integration_id, activities, verbose=verbose)
+            # print("Skipping messages")
+            self.send_messages(segment_id, integration_id, activities, verbose=verbose)
         except:
             logger.error("Failed trying to send messages for %s", remote)
         finally:

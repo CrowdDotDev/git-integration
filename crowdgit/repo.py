@@ -85,7 +85,6 @@ def is_valid_commit_hash(commit_hash: str) -> bool:
     >>> is_valid_commit_hash('not so')
     False
     """
-    print(commit_hash)
     return re.match(r"^[0-9a-f]{40}$", commit_hash) is not None
 
 
@@ -241,18 +240,16 @@ def get_commits(
         commits_iter = commits_texts
 
     for commit_text in commits_iter:
-        print("commit text")
-        print(commit_text)
         commit_lines = commit_text.strip().splitlines()
-        print("commit lines")
-        from pprint import pprint as pp
 
-        pp(commit_lines)
-        print("\n#############\n\n")
         if len(commit_lines) < 8:
             bad_commits += 1
             store_bad_commits(commit_text, repo_path)
             continue
+
+        if (len(commit_lines)) < 9:
+            from pprint import pprint as pp 
+            pp(commit_lines)
 
         commit_hash = commit_lines[0]
         author_datetime = commit_lines[1]
@@ -262,8 +259,15 @@ def get_commits(
         committer_name = commit_lines[5]
         committer_email = commit_lines[6]
         parent_hashes = commit_lines[7].split()
-        ref_names = commit_lines[8].strip()
-        commit_message = commit_lines[9:]
+        if len(commit_lines) >= 9:
+            ref_names = commit_lines[8].strip()
+        else: 
+            ref_names = ''
+        
+        if len(commit_lines) >= 10:
+            commit_message = commit_lines[9:]
+        else:
+            commit_message = ""
 
         if not (is_valid_commit_hash(commit_hash) and is_valid_datetime(commit_datetime)):
             logger.error(
@@ -275,8 +279,8 @@ def get_commits(
             store_bad_commits(commit_text, repo_path)
             continue
 
-        is_main_branch = f"origin/{default_branch}" in ref_names
         is_merge_commit = len(parent_hashes) > 1
+        is_main_branch = True
 
         commits.append(
             {
