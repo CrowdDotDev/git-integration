@@ -72,8 +72,7 @@ def extract_activities(commit_message: List[str]) -> List[Dict[str, Dict[str, st
     >>> extract_activities([
     ...     "Signed-off-by: Arnd Bergmann <arnd@arndb.de>",
     ...     "reported-by: Guenter Roeck <linux@roeck-us.net>"
-    ... ]) == [{'Co-authored-by': {'email': 'arnd@arndb.de', 'name': 'Arnd Bergmann'}},
-    ...        {'Signed-off-by': {'email': 'arnd@arndb.de', 'name': 'Arnd Bergmann'}},
+    ... ]) == [{'Signed-off-by': {'email': 'arnd@arndb.de', 'name': 'Arnd Bergmann'}},
     ...        {'Reported-by': {'email': 'linux@roeck-us.net', 'name': 'Guenter Roeck'}}]
     True
     """
