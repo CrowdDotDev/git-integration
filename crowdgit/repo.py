@@ -15,11 +15,11 @@ from crowdgit.logger import get_logger
 
 logger = get_logger(__name__)
 
-DEFAULT_REPOS_DIR = os.path.join(LOCAL_DIR, 'repos')
-REPOS_DIR = os.environ.get('REPOS_DIR', DEFAULT_REPOS_DIR)
+DEFAULT_REPOS_DIR = os.path.join(LOCAL_DIR, "repos")
+REPOS_DIR = os.environ.get("REPOS_DIR", DEFAULT_REPOS_DIR)
 
-DEFAULT_BAD_COMMITS_DIR = os.path.join(LOCAL_DIR, 'bad-commits')
-BAD_COMMITS_DIR = os.environ.get('BAD_COMMITS_DIR', DEFAULT_BAD_COMMITS_DIR)
+DEFAULT_BAD_COMMITS_DIR = os.path.join(LOCAL_DIR, "bad-commits")
+BAD_COMMITS_DIR = os.environ.get("BAD_COMMITS_DIR", DEFAULT_BAD_COMMITS_DIR)
 
 
 def get_repo_name(remote: str) -> str:
@@ -31,8 +31,8 @@ def get_repo_name(remote: str) -> str:
     >>> get_repo_name("https://github.com/user/repo.git")
     'repo'
     """
-    repo_name = remote.strip().rstrip('/').split('/')[-1]
-    if repo_name.endswith('.git'):
+    repo_name = remote.strip().rstrip("/").split("/")[-1]
+    if repo_name.endswith(".git"):
         repo_name = repo_name[:-4]  # Remove the '.git' extension
     return repo_name
 
@@ -50,15 +50,15 @@ def get_default_branch(repo_path: str) -> str:
         # pylint: disable=use-maxsplit-arg
         default_branch = (
             subprocess.check_output(
-                ['git', '-C', repo_path, 'symbolic-ref', 'refs/remotes/origin/HEAD']
+                ["git", "-C", repo_path, "symbolic-ref", "refs/remotes/origin/HEAD"]
             )
-            .decode('utf-8')
+            .decode("utf-8")
             .strip()
-            .split('/')[-1]
+            .split("/")[-1]
         )
         return default_branch
     except subprocess.CalledProcessError:
-        return 'master'
+        return "master"
 
 
 def get_local_repo(remote: str, repos_dir: str) -> str:
@@ -85,7 +85,7 @@ def is_valid_commit_hash(commit_hash: str) -> bool:
     >>> is_valid_commit_hash('not so')
     False
     """
-    return re.match(r'^[0-9a-f]{40}$', commit_hash) is not None
+    return re.match(r"^[0-9a-f]{40}$", commit_hash) is not None
 
 
 def is_valid_datetime(commit_datetime: str) -> bool:
@@ -100,7 +100,7 @@ def is_valid_datetime(commit_datetime: str) -> bool:
     False
     """
     try:
-        time.strptime(commit_datetime, '%Y-%m-%dT%H:%M:%S%z')
+        time.strptime(commit_datetime, "%Y-%m-%dT%H:%M:%S%z")
         return True
     except ValueError:
         return False
@@ -117,23 +117,23 @@ def clone_repo(remote: str, repos_dir: str) -> None:
     repo_path = get_local_repo(remote, repos_dir)
 
     if os.path.exists(repo_path):
-        raise E.CrowdGitError(f'Error creating {repo_path}: not overwriting existing directory')
+        raise E.CrowdGitError(f"Error creating {repo_path}: not overwriting existing directory")
 
     try:
         if not os.path.exists(repo_path):
             os.makedirs(repo_path)
 
-        logger.info('Cloning %s to %s', remote, repo_path)
+        logger.info("Cloning %s to %s", remote, repo_path)
         start_time = time.time()
         subprocess.run(
-            ['git', 'clone', remote, repo_path],
+            ["git", "clone", remote, repo_path],
             check=True,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
         end_time = time.time()
         logger.info(
-            'Repository %s cloned successfully to %s in %d s (%.1f min)',
+            "Repository %s cloned successfully to %s in %d s (%.1f min)",
             remote,
             repo_path,
             int(end_time - start_time),
@@ -147,13 +147,13 @@ def store_bad_commits(commit_lines: str, repo_path: str):
     if not os.path.exists(BAD_COMMITS_DIR):
         os.makedirs(BAD_COMMITS_DIR)
 
-    bad_commits_file = os.path.join(BAD_COMMITS_DIR, os.path.basename(repo_path)) + '.txt'
+    bad_commits_file = os.path.join(BAD_COMMITS_DIR, os.path.basename(repo_path)) + ".txt"
 
     if commit_lines.strip():
-        logger.info('Storing bad commits in %s: %s', bad_commits_file, commit_lines)
-        with open(bad_commits_file, 'a', encoding='utf-8') as fout:
+        logger.info("Storing bad commits in %s", bad_commits_file)
+        with open(bad_commits_file, "a", encoding="utf-8") as fout:
             fout.write(commit_lines)
-            fout.write('\n-------------\n')
+            fout.write("\n-------------\n")
 
 
 def get_commits(
@@ -185,41 +185,41 @@ def get_commits(
                 - 'message': The commit message as a list of strings, where each string is a line
                              of the message.
     """
-    logger.info('Extracting commits from %s', repo_path)
+    logger.info("Extracting commits from %s", repo_path)
     if new_only:
-        commit_range = f'..origin/{default_branch}'
+        commit_range = f"..origin/{default_branch}"
     else:
-        commit_range = f'origin/{default_branch}'
+        commit_range = f"origin/{default_branch}"
 
-    splitter = '--CROWD-END-OF-COMMIT--'
+    splitter = "--CROWD-END-OF-COMMIT--"
 
     git_log_command = [
-        'git',
-        '-C',
+        "git",
+        "-C",
         repo_path,
-        'log',
+        "log",
         commit_range,
-        f'--pretty=format:%H%n%aI%n%an%n%ae%n%cI%cn%n%ce%n%P%n%d%n%B%n{splitter}',
+        f"--pretty=format:%H%n%aI%n%an%n%ae%n%cI%n%cn%n%ce%n%P%n%d%n%B%n{splitter}",
     ]
 
     if since:
-        git_log_command.append(f'--since={since}')
+        git_log_command.append(f"--since={since}")
     if until:
-        git_log_command.append(f'--until={until}')
+        git_log_command.append(f"--until={until}")
 
     # Set core.abbrevCommit to false to avoid truncating commit messages
-    subprocess.check_output(['git', '-C', repo_path, 'config', 'core.abbrevCommit', 'false'])
+    subprocess.check_output(["git", "-C", repo_path, "config", "core.abbrevCommit", "false"])
 
     start_time = time.time()
     try:
         commits_output = (
-            subprocess.check_output(git_log_command).decode('utf-8', errors='replace').strip()
+            subprocess.check_output(git_log_command).decode("utf-8", errors="replace").strip()
         )
     except Exception as e:
         logger.error(
-            'Failed trying to extract commits for %s with %s: \n%s',
+            "Failed trying to extract commits for %s with %s: \n%s",
             repo_path,
-            ' '.join(git_log_command),
+            " ".join(git_log_command),
             str(e),
         )
         return []
@@ -227,7 +227,7 @@ def get_commits(
     end_time = time.time()
 
     if not commits_output:
-        logger.info('Did not find any commit output in %s', repo_path)
+        logger.info("Did not find any commit output in %s", repo_path)
         return []
 
     bad_commits = 0
@@ -241,10 +241,15 @@ def get_commits(
 
     for commit_text in commits_iter:
         commit_lines = commit_text.strip().splitlines()
+
         if len(commit_lines) < 8:
             bad_commits += 1
             store_bad_commits(commit_text, repo_path)
             continue
+
+        if (len(commit_lines)) < 9:
+            from pprint import pprint as pp 
+            pp(commit_lines)
 
         commit_hash = commit_lines[0]
         author_datetime = commit_lines[1]
@@ -254,12 +259,19 @@ def get_commits(
         committer_name = commit_lines[5]
         committer_email = commit_lines[6]
         parent_hashes = commit_lines[7].split()
-        ref_names = commit_lines[8].strip()
-        commit_message = commit_lines[9:]
+        if len(commit_lines) >= 9:
+            ref_names = commit_lines[8].strip()
+        else: 
+            ref_names = ''
+        
+        if len(commit_lines) >= 10:
+            commit_message = commit_lines[9:]
+        else:
+            commit_message = ""
 
         if not (is_valid_commit_hash(commit_hash) and is_valid_datetime(commit_datetime)):
             logger.error(
-                'Invalid commit data found: hash=%s, datetime=%s',
+                "Invalid commit data found: hash=%s, datetime=%s",
                 commit_hash,
                 commit_datetime,
             )
@@ -267,28 +279,28 @@ def get_commits(
             store_bad_commits(commit_text, repo_path)
             continue
 
-        is_main_branch = f'origin/{default_branch}' in ref_names
         is_merge_commit = len(parent_hashes) > 1
+        is_main_branch = True
 
         commits.append(
             {
-                'hash': commit_hash,
-                'author_datetime': author_datetime,
-                'author_name': author_name,
-                'author_email': author_email,
-                'committer_datetime': commit_datetime,
-                'committer_name': committer_name,
-                'committer_email': committer_email,
-                'is_main_branch': is_main_branch,
-                'is_merge_commit': is_merge_commit,
-                'message': commit_message,
+                "hash": commit_hash,
+                "author_datetime": author_datetime,
+                "author_name": author_name,
+                "author_email": author_email,
+                "committer_datetime": commit_datetime,
+                "committer_name": committer_name,
+                "committer_email": committer_email,
+                "is_main_branch": is_main_branch,
+                "is_merge_commit": is_merge_commit,
+                "message": commit_message,
             }
         )
 
     logger.info(
-        '%d commits (%s) extracted from %s in %d s (%1.f min), %d bad commits',
+        "%d commits (%s) extracted from %s in %d s (%1.f min), %d bad commits",
         len(commits),
-        'new only' if new_only else 'all',
+        "new only" if new_only else "all",
         repo_path,
         int(end_time - start_time),
         (end_time - start_time) / 60,
@@ -316,35 +328,35 @@ def get_insertions_deletions(
     :return: A dictionary with commit hash as key and a dictionary with keys
              insertions/deletions as value.
     """
-    logger.info('Extracting insertions/deletions from %s', repo_path)
+    logger.info("Extracting insertions/deletions from %s", repo_path)
     if new_only:
-        commit_range = f'..origin/{default_branch}'
+        commit_range = f"..origin/{default_branch}"
     else:
-        commit_range = f'origin/{default_branch}'
+        commit_range = f"origin/{default_branch}"
 
     git_log_command = [
-        'git',
-        '-C',
+        "git",
+        "-C",
         repo_path,
-        'log',
+        "log",
         commit_range,
-        '--pretty=format:%H',
-        '--cc',
-        '--numstat',
+        "--pretty=format:%H",
+        "--cc",
+        "--numstat",
     ]
 
     if since:
-        git_log_command.append(f'--since={since}')
+        git_log_command.append(f"--since={since}")
     if until:
-        git_log_command.append(f'--until={until}')
+        git_log_command.append(f"--until={until}")
 
     # Set core.abbrevCommit to false to avoid truncating commit messages
-    subprocess.check_output(['git', '-C', repo_path, 'config', 'core.abbrevCommit', 'false'])
+    subprocess.check_output(["git", "-C", repo_path, "config", "core.abbrevCommit", "false"])
 
     start_time = time.time()
     try:
         commits_output = (
-            subprocess.check_output(git_log_command).decode('utf-8', errors='replace').strip()
+            subprocess.check_output(git_log_command).decode("utf-8", errors="replace").strip()
         )
     except:
         return {}
@@ -357,7 +369,7 @@ def get_insertions_deletions(
     bad_commits = 0
     changes = {}
 
-    commits_texts = commits_output.split('\n\n')
+    commits_texts = commits_output.split("\n\n")
     if verbose:
         commits_iter = tqdm.tqdm(commits_texts, desc="Extracting insertions/deletions")
     else:
@@ -373,7 +385,7 @@ def get_insertions_deletions(
 
         commit_hash = commit_lines[0]
         if not is_valid_commit_hash(commit_hash):
-            logger.error('Invalid insertions/deletions hash found: hash=%s', commit_hash)
+            logger.error("Invalid insertions/deletions hash found: hash=%s", commit_hash)
             bad_commits += 1
             store_bad_commits(commit_text, repo_path)
             continue
@@ -383,19 +395,19 @@ def get_insertions_deletions(
         deletions = 0
 
         for line in insertions_deletions:
-            match = re.match(r'^(\d+)\s+(\d+)', line)
+            match = re.match(r"^(\d+)\s+(\d+)", line)
             if match:
                 insertions += int(match.group(1))
                 deletions += int(match.group(2))
 
-        changes[commit_hash] = {'insertions': insertions, 'deletions': deletions}
+        changes[commit_hash] = {"insertions": insertions, "deletions": deletions}
 
     end_time = time.time()
 
     logger.info(
-        'Changes for %d commits (%s) extracted from %s in %d s (%.1f min), %d bad commits',
+        "Changes for %d commits (%s) extracted from %s in %d s (%.1f min), %d bad commits",
         len(changes),
-        'new only' if new_only else 'all',
+        "new only" if new_only else "all",
         repo_path,
         int(end_time - start_time),
         (end_time - start_time) / 60,
@@ -429,13 +441,13 @@ def get_new_commits(remote: str, repos_dir: str = REPOS_DIR, verbose: bool = Fal
 
     def _add_insertions_deletions(commits: List, insertions_deletions: Dict) -> List[Dict]:
         return [
-            commit | insertions_deletions.get(commit['hash'], {'insertions': 0, 'deletions': 0})
+            commit | insertions_deletions.get(commit["hash"], {"insertions": 0, "deletions": 0})
             for commit in commits
         ]
 
     if not os.path.exists(repo_path):
         # Clone the repo if it doesn't exist
-        logger.info('Repo %s not existing locally', repo_path)
+        logger.info("Repo %s not existing locally", repo_path)
         clone_repo(remote, repos_dir)
         default_branch = get_default_branch(repo_path)
         insertions_deletions = get_insertions_deletions(
@@ -448,10 +460,10 @@ def get_new_commits(remote: str, repos_dir: str = REPOS_DIR, verbose: bool = Fal
         )
         return new_commits
 
-    logger.info('Fetching %s', repo_path)
+    logger.info("Fetching %s", repo_path)
     # Fetch the remote changes without merging
     subprocess.run(
-        ['git', '-C', repo_path, 'fetch'],
+        ["git", "-C", repo_path, "fetch"],
         check=True,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
@@ -465,13 +477,13 @@ def get_new_commits(remote: str, repos_dir: str = REPOS_DIR, verbose: bool = Fal
 
     if new_commits:
         subprocess.run(
-            ['git', '-C', repo_path, 'merge', f'origin/{default_branch}'],
+            ["git", "-C", repo_path, "merge", f"origin/{default_branch}"],
             check=True,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
     else:
-        logger.info('No new commits')
+        logger.info("No new commits")
 
     return _add_insertions_deletions(new_commits, insertions_deletions)
 
@@ -483,42 +495,42 @@ def main():
     import argparse
     import json
 
-    parser = argparse.ArgumentParser(description='Get commit data from Git repositories.')
-    subparsers = parser.add_subparsers(dest='command')
+    parser = argparse.ArgumentParser(description="Get commit data from Git repositories.")
+    subparsers = parser.add_subparsers(dest="command")
 
-    get_commits_parser = subparsers.add_parser('get-commits')
-    get_commits_parser.add_argument('repo_path', help='Local path to the repository.')
+    get_commits_parser = subparsers.add_parser("get-commits")
+    get_commits_parser.add_argument("repo_path", help="Local path to the repository.")
     get_commits_parser.add_argument(
-        '--new-only', action='store_true', help='Get only new commits.'
+        "--new-only", action="store_true", help="Get only new commits."
     )
-    get_commits_parser.add_argument('--since', help='Starting date to fetch commits.')
-    get_commits_parser.add_argument('--until', help='End date to fetch commits.')
+    get_commits_parser.add_argument("--since", help="Starting date to fetch commits.")
+    get_commits_parser.add_argument("--until", help="End date to fetch commits.")
 
-    get_insertions_deletions_parser = subparsers.add_parser('get-insertions-deletions')
-    get_insertions_deletions_parser.add_argument('repo_path', help='Local path to the repository.')
+    get_insertions_deletions_parser = subparsers.add_parser("get-insertions-deletions")
+    get_insertions_deletions_parser.add_argument("repo_path", help="Local path to the repository.")
     get_insertions_deletions_parser.add_argument(
-        '--new-only', action='store_true', help='Get only new commits.'
+        "--new-only", action="store_true", help="Get only new commits."
     )
-    get_insertions_deletions_parser.add_argument('--since', help='Starting date to fetch commits.')
-    get_insertions_deletions_parser.add_argument('--until', help='End date to fetch commits.')
+    get_insertions_deletions_parser.add_argument("--since", help="Starting date to fetch commits.")
+    get_insertions_deletions_parser.add_argument("--until", help="End date to fetch commits.")
 
-    get_new_commits_parser = subparsers.add_parser('get-new-commits')
-    get_new_commits_parser.add_argument('remote', help='Remote repository URL.')
+    get_new_commits_parser = subparsers.add_parser("get-new-commits")
+    get_new_commits_parser.add_argument("remote", help="Remote repository URL.")
     get_new_commits_parser.add_argument(
-        '--local-dir',
+        "--local-dir",
         default=REPOS_DIR,
         help=(
-            'Local directory to store the repository. '
-            'Defaults to the REPOS_DIR environment variable, '
+            "Local directory to store the repository. "
+            "Defaults to the REPOS_DIR environment variable, "
             f'or to "{DEFAULT_REPOS_DIR}" if that is not set up'
         ),
     )
 
-    parser.add_argument('--output', required=True, help='Output JSON file to store the results.')
+    parser.add_argument("--output", required=True, help="Output JSON file to store the results.")
 
     args = parser.parse_args()
 
-    if args.command == 'get-commits':
+    if args.command == "get-commits":
         result = get_commits(
             args.repo_path,
             get_default_branch(args.repo_path),
@@ -526,7 +538,7 @@ def main():
             args.since,
             args.until,
         )
-    elif args.command == 'get-insertions-deletions':
+    elif args.command == "get-insertions-deletions":
         result = get_insertions_deletions(
             args.repo_path,
             get_default_branch(args.repo_path),
@@ -534,15 +546,15 @@ def main():
             args.since,
             args.until,
         )
-    elif args.command == 'get-new-commits':
+    elif args.command == "get-new-commits":
         result = get_new_commits(args.remote, args.local_dir)
     else:
-        parser.error('Invalid command')
+        parser.error("Invalid command")
 
-    with open(args.output, 'w', encoding='utf-8') as output_file:
+    with open(args.output, "w", encoding="utf-8") as output_file:
         json.dump(result, output_file, indent=2)
 
-    print(f'Results saved to {args.output}')
+    print(f"Results saved to {args.output}")
 
 
 if __name__ == "__main__":

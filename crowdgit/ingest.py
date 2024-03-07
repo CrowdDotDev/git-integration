@@ -146,13 +146,16 @@ class SQS:
 
         try:
             activities = prepare_crowd_activities(remote, verbose=verbose)
+
         except Exception as e:
             logger.error("Failed trying to prepare activities for %s. Error:\n%s", remote, str(e))
+            raise e
             if os.path.exists(semaphore):
                 os.remove(semaphore)
             return
 
         try:
+            # print("Skipping messages")
             self.send_messages(segment_id, integration_id, activities, verbose=verbose)
         except:
             logger.error("Failed trying to send messages for %s", remote)
@@ -186,11 +189,10 @@ def main():
         os.environ["CROWD_API_KEY"],
     )
 
-
     for segment_id in remotes:
         integration_id = remotes[segment_id]["integrationId"]
         for remote in remotes[segment_id]["remotes"]:
-            if not args.remote or (args.remote.rstrip('.git') == remote.rstrip('.git')):
+            if not args.remote or (args.remote.rstrip(".git") == remote.rstrip(".git")):
                 logger.info(f"Ingesting {remote} for segment {segment_id}")
                 sqs.ingest_remote(segment_id, integration_id, remote, verbose=args.verbose)
 
