@@ -193,7 +193,6 @@ def prepare_crowd_activities(
                 create_activity(commit, activity_type, member, source_id, commit["hash"])
             )
 
-        platform = "git"
         activities += activities_to_add
 
     # For the new processing of activities
