@@ -5,6 +5,7 @@ import subprocess
 import time
 import re
 from typing import List, Optional, Dict
+import datetime
 
 import tqdm
 
@@ -256,6 +257,9 @@ def get_commits(
         author_name = commit_lines[2]
         author_email = commit_lines[3]
         commit_datetime = commit_lines[4]
+        commit_datetime_obj = datetime.datetime.strptime(commit_datetime, "%Y-%m-%dT%H:%M:%S%z")
+        if commit_datetime_obj > datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=1):
+            commit_datetime = author_datetime
         committer_name = commit_lines[5]
         committer_email = commit_lines[6]
         parent_hashes = commit_lines[7].split()

@@ -76,6 +76,13 @@ def extract_activities(commit_message: List[str]) -> List[Dict[str, Dict[str, st
                     activities.append({activity: {"name": name.strip(), "email": email.strip()}})
     return activities
 
+
+def clean_up_username(name: str):
+    name = re.sub(r'(?i)Reviewed[- ]by:', '', name)
+    name = re.sub(r'(?i)from:', '', name)
+    name = re.sub(r'(?i)cc:.*', '', name).strip()
+    return name.strip()
+
 # pylint: disable=too-many-branches
 def prepare_crowd_activities(
     remote: str, commits: List[Dict] = None, verbose: bool = False
@@ -96,12 +103,12 @@ def prepare_crowd_activities(
 
         # Check if username or displayName is None, an empty string, or not an actual name
         if not member["username"]:
-            member["username"] = member["emails"][0].split("@")[0]
+            member["username"] = member["emails"][0]
         if not member["displayName"]:
             member["displayName"] = member["emails"][0].split("@")[0]
 
-        member["username"] = member["username"].replace('Reviewed-by:', '').strip()
-        member["displayName"] = member["displayName"].replace('Reviewed-by:', '').strip()
+        member["username"] = clean_up_username(member["username"])
+        member["displayName"] = clean_up_username(member["displayName"])
 
         return {
             "type": activity_type,
@@ -174,7 +181,7 @@ def prepare_crowd_activities(
             activity_type = activity_type.lower().replace("-by", "") + "-commit"
 
             member = {
-                "username": member_data["name"],
+                "username": member_data["email"],
                 "displayName": member_data["name"],
                 "emails": [member_data["email"]],
             }
