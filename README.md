@@ -65,7 +65,7 @@ A commit can have multiple activities within. For example, this is how a fairly 
     - **Name**: `Linus Torvalds`
     - **Email**: `torvalds@linux-foundation.org`
     - **Date**: `2023-03-31 16:10:04-07:00`
-- **Message** 
+- **Message:** 
 ```
 *Body here…
 Signed-off-by: Arnd Bergmann arnd@arndb.de
