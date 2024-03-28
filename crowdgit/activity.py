@@ -78,10 +78,11 @@ def extract_activities(commit_message: List[str]) -> List[Dict[str, Dict[str, st
 
 
 def clean_up_username(name: str):
-    name = re.sub(r'(?i)Reviewed[- ]by:', '', name)
-    name = re.sub(r'(?i)from:', '', name)
-    name = re.sub(r'(?i)cc:.*', '', name).strip()
+    name = re.sub(r"(?i)Reviewed[- ]by:", "", name)
+    name = re.sub(r"(?i)from:", "", name)
+    name = re.sub(r"(?i)cc:.*", "", name).strip()
     return name.strip()
+
 
 # pylint: disable=too-many-branches
 def prepare_crowd_activities(
@@ -200,11 +201,23 @@ def prepare_crowd_activities(
         activity["member"]["identities"] = [
             {
                 "platform": activity["platform"],
-                "username": activity["member"]["username"],
+                "value": activity["member"]["username"],
+                "type": "username",
+                "verified": True,
             }
+        ]
+        +[
+            {
+                "platform": activity["platform"],
+                "value": email,
+                "type": "email",
+                "verified": False,
+            }
+            for email in activity["member"]["emails"]
         ]
 
         del activity["member"]["username"]
+        del activity["member"]["emails"]
 
     return activities
 
