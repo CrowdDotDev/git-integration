@@ -205,8 +205,7 @@ def prepare_crowd_activities(
                 "type": "username",
                 "verified": True,
             }
-        ]
-        +[
+        ] + [
             {
                 "platform": activity["platform"],
                 "value": email,
