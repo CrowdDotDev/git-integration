@@ -24,18 +24,20 @@ BAD_COMMITS_DIR = os.environ.get("BAD_COMMITS_DIR", DEFAULT_BAD_COMMITS_DIR)
 
 
 def get_repo_name(remote: str) -> str:
-    """Get the repository name from the remote URL.
+    """Get the organization and repository name from the remote URL.
 
     :param remote: The remote URL of the repository.
-    :return: The repository name without the '.git' extension.
+    :return: The organization and repository name in the format 'org-repo', without the '.git' extension.
 
     >>> get_repo_name("https://github.com/user/repo.git")
-    'repo'
+    'user-repo'
     """
-    repo_name = remote.strip().rstrip("/").split("/")[-1]
+    parts = remote.strip().rstrip("/").split("/")
+    repo_name = parts[-1]
+    org_name = parts[-2]
     if repo_name.endswith(".git"):
         repo_name = repo_name[:-4]  # Remove the '.git' extension
-    return repo_name
+    return f"{org_name}-{repo_name}"
 
 
 def get_default_branch(repo_path: str) -> str:
@@ -249,7 +251,8 @@ def get_commits(
             continue
 
         if (len(commit_lines)) < 9:
-            from pprint import pprint as pp 
+            from pprint import pprint as pp
+
             pp(commit_lines)
 
         commit_hash = commit_lines[0]
@@ -258,16 +261,18 @@ def get_commits(
         author_email = commit_lines[3]
         commit_datetime = commit_lines[4]
         commit_datetime_obj = datetime.datetime.strptime(commit_datetime, "%Y-%m-%dT%H:%M:%S%z")
-        if commit_datetime_obj > datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=1):
+        if commit_datetime_obj > datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(
+            days=1
+        ):
             commit_datetime = author_datetime
         committer_name = commit_lines[5]
         committer_email = commit_lines[6]
         parent_hashes = commit_lines[7].split()
         if len(commit_lines) >= 9:
             ref_names = commit_lines[8].strip()
-        else: 
-            ref_names = ''
-        
+        else:
+            ref_names = ""
+
         if len(commit_lines) >= 10:
             commit_message = commit_lines[9:]
         else:
