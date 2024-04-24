@@ -51,15 +51,20 @@ def get_default_branch(repo_path: str) -> str:
     """
     try:
         # pylint: disable=use-maxsplit-arg
-        default_branch = (
+        output = (
             subprocess.check_output(
                 ["git", "-C", repo_path, "symbolic-ref", "refs/remotes/origin/HEAD"]
             )
             .decode("utf-8")
             .strip()
-            .split("/")[-1]
         )
-        return default_branch
+
+        # Remove the 'refs/remotes/origin/' prefix to get the full branch name
+        prefix = "refs/remotes/origin/"
+        if output.startswith(prefix):
+            return output[len(prefix) :]
+        else:
+            return "master"  # fallback if the output is unexpected
     except subprocess.CalledProcessError:
         return "master"
 
