@@ -201,7 +201,7 @@ def prepare_crowd_activities(
         activity["member"]["identities"] = [
             {
                 "platform": activity["platform"],
-                "value": activity["member"]["username"],
+                "value": activity["member"]["emails"][0],
                 "type": "username",
                 "verified": True,
             }
