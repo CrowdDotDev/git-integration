@@ -1,1 +1,1 @@
-cd crowdgit && fastapi run server.py
+source ~/venv/cgit/bin/activate && cd crowdgit && fastapi run server.py
