@@ -1,0 +1,1 @@
+cd crowdgit && fastapi run server.py

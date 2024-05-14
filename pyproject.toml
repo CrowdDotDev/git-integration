@@ -20,7 +20,8 @@ dependencies = [
     "python-json-logger",
     "python-dotenv",
     "gitpython",
-    "fastapi"
+    "fastapi",
+    "asyncio",
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
