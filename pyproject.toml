@@ -19,7 +19,9 @@ dependencies = [
     "boto3",
     "python-json-logger",
     "python-dotenv",
-    "gitpython"
+    "gitpython",
+    "fastapi",
+    "asyncio",
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
