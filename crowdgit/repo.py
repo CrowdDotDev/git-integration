@@ -24,20 +24,25 @@ BAD_COMMITS_DIR = os.environ.get("BAD_COMMITS_DIR", DEFAULT_BAD_COMMITS_DIR)
 
 
 def get_repo_name(remote: str) -> str:
-    """Get the organization and repository name from the remote URL.
+    """Get the domain and path segments from the remote URL and join them with '-'.
 
     :param remote: The remote URL of the repository.
-    :return: The organization and repository name in the format 'org-repo', without the '.git' extension.
+    :return: The domain and path segments joined by '-', without the '.git' extension.
 
     >>> get_repo_name("https://github.com/user/repo.git")
-    'user-repo'
+    'github.com-user-repo'
+
+    >>> get_repo_name("https://gerrit.fd.io/r/hc2vpp")
+    'gerrit.fd.io-r-hc2vpp'
     """
+    # Remove the protocol (http or https)
+    remote = re.sub(r"^https?://", "", remote)
+    # Remove the '.git' extension if present
+    if remote.endswith(".git"):
+        remote = remote[:-4]
+    # Split by '/' and join with '-'
     parts = remote.strip().rstrip("/").split("/")
-    repo_name = parts[-1]
-    org_name = parts[-2]
-    if repo_name.endswith(".git"):
-        repo_name = repo_name[:-4]  # Remove the '.git' extension
-    return f"{org_name}-{repo_name}"
+    return "-".join(parts)
 
 
 def get_default_branch(repo_path: str) -> str:
