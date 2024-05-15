@@ -12,7 +12,7 @@ load_dotenv()
 app = FastAPI()
 auth_scheme = HTTPBearer()
 
-DEFAULT_REPOS_DIR = os.path.join(LOCAL_DIR, "repos")
+DEFAULT_REPOS_DIR = os.path.join("..", "..", LOCAL_DIR, "repos")
 REPOS_DIR = os.environ.get("REPOS_DIR", DEFAULT_REPOS_DIR)
 
 
