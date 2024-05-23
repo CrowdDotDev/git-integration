@@ -95,17 +95,17 @@ class SQS:
             message_id = f"{os.environ['TENANT_ID']}-{operation}-{platform}-{deduplication_id}"
 
             body = get_body_json(record)
-	    try:
-            	response = self.sqs.send_message(
-                	QueueUrl=self.sqs_url,
-                	MessageAttributes={},
-                	MessageBody=body,
-                	MessageGroupId=message_id,
-                	MessageDeduplicationId=deduplication_id,
-   		 )
-	    except Exception as e:
-	    	logger.warning("Error ingesting commit %s. Skipping this commit", body)
-	        continue
+            try:
+                response = self.sqs.send_message(
+                    QueueUrl=self.sqs_url,
+                    MessageAttributes={},
+                    MessageBody=body,
+                    MessageGroupId=message_id,
+                    MessageDeduplicationId=deduplication_id,
+                )
+            except Exception as e:
+                logger.warning("Error ingesting commit %s. Skipping this commit. %s", body, str(e))
+                continue
 
             # A response should be something like this:
             #
@@ -195,7 +195,9 @@ def main():
         integration_id = remotes[segment_id]["integrationId"]
         for j, remote in enumerate(remotes[segment_id]["remotes"]):
             if args.verbose:
-                print(f"\n\n{i + 1} / {len(remotes)} segments.\n{j + 1} / {len(remotes[segment_id]['remotes'])} repos.")
+                print(
+                    f"\n\n{i + 1} / {len(remotes)} segments.\n{j + 1} / {len(remotes[segment_id]['remotes'])} repos."
+                )
             if not args.remote or (args.remote.rstrip(".git") == remote.rstrip(".git")):
                 logger.info(f"Ingesting {remote} for segment {segment_id}")
                 sqs.ingest_remote(segment_id, integration_id, remote, verbose=args.verbose)
