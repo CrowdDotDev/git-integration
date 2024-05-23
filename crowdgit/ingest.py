@@ -24,12 +24,57 @@ from crowdgit.logger import get_logger
 logger = get_logger(__name__)
 
 
+SQS_MAX_MESSAGE_SIZE_IN_BYTES = 262144
+
+
 def string_converter(o):
     """
     Function that converts object to string
     This will be used when converting to Json, to convert non serializable attributes
     """
     return str(o)
+
+
+def baseline_message_size() -> int:
+    """
+    Calculate the size of baseline (with empty activityData) json object in bytes
+    """
+    body = json.dumps(
+        {
+            "type": "create_and_process_activity_result",
+            "tenantId": os.environ["TENANT_ID"],
+            "segmentId": os.environ["TENANT_ID"],
+            "integrationId": os.environ["TENANT_ID"],
+            "activityData": "",
+        },
+        default=string_converter,
+    )
+
+    return len(body.encode("utf-8")) + 2
+
+
+def truncate_to_bytes(s: str, max_bytes: int, encoding="utf-8"):
+    """
+    Truncate the string `s` so that its byte size is strictly less than `max_bytes`.
+
+    Parameters:
+    s (str): The string to truncate.
+    max_bytes (int): The maximum allowed size in bytes.
+    encoding (str): The encoding to use for the byte representation.
+
+    Returns:
+    str: The truncated string.
+    """
+    encoded_string = s.encode(encoding)
+
+    if len(encoded_string) < max_bytes:
+        return s
+
+    truncated_string = s
+    while len(truncated_string.encode(encoding)) >= max_bytes:
+        truncated_string = truncated_string[:-1]
+
+    return truncated_string
 
 
 class SQS:
@@ -71,7 +116,7 @@ class SQS:
         operation = "upsert_activities_with_members"
 
         def get_body_json(record):
-            return json.dumps(
+            body = json.dumps(
                 {
                     "type": "create_and_process_activity_result",
                     "tenantId": os.environ["TENANT_ID"],
@@ -81,6 +126,29 @@ class SQS:
                 },
                 default=string_converter,
             )
+
+            if len(body.encode("utf-8")) > SQS_MAX_MESSAGE_SIZE_IN_BYTES:
+                logger.warning(
+                    "The activity body is too big (%d bytes). Truncating the body.",
+                    len(body.encode("utf-8")),
+                )
+                record["body"] = truncate_to_bytes(
+                    record["body"], SQS_MAX_MESSAGE_SIZE_IN_BYTES - baseline_message_size()
+                )
+                body = json.dumps(
+                    {
+                        "type": "create_and_process_activity_result",
+                        "tenantId": os.environ["TENANT_ID"],
+                        "segmentId": segment_id,
+                        "integrationId": integration_id,
+                        "activityData": record,
+                    },
+                    default=string_converter,
+                )
+
+                logger.info("Truncated body size: %d bytes", len(body.encode("utf-8")))
+
+            return body
 
         platform = "git"
         responses = []
@@ -95,17 +163,14 @@ class SQS:
             message_id = f"{os.environ['TENANT_ID']}-{operation}-{platform}-{deduplication_id}"
 
             body = get_body_json(record)
-            try:
-                response = self.sqs.send_message(
-                    QueueUrl=self.sqs_url,
-                    MessageAttributes={},
-                    MessageBody=body,
-                    MessageGroupId=message_id,
-                    MessageDeduplicationId=deduplication_id,
-                )
-            except Exception as e:
-                logger.warning("Error ingesting commit %s. Skipping this commit. %s", body, str(e))
-                continue
+
+            response = self.sqs.send_message(
+                QueueUrl=self.sqs_url,
+                MessageAttributes={},
+                MessageBody=body,
+                MessageGroupId=message_id,
+                MessageDeduplicationId=deduplication_id,
+            )
 
             # A response should be something like this:
             #
