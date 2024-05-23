@@ -50,7 +50,7 @@ def baseline_message_size() -> int:
         default=string_converter,
     )
 
-    return len(body.encode("utf-8")) + 2
+    return len(body.encode("utf-8")) + 5000  # 5000 is a rough estimate of the overhead
 
 
 def truncate_to_bytes(s: str, max_bytes: int, encoding="utf-8"):
