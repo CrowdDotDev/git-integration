@@ -25,6 +25,7 @@ logger = get_logger(__name__)
 
 
 SQS_MAX_MESSAGE_SIZE_IN_BYTES = 262144
+SQS_OVERHEAD = 6000
 
 
 def string_converter(o):
@@ -50,7 +51,7 @@ def baseline_message_size() -> int:
         default=string_converter,
     )
 
-    return len(body.encode("utf-8")) + 5000  # 5000 is a rough estimate of the overhead
+    return len(body.encode("utf-8")) + SQS_OVERHEAD  # 5000 is a rough estimate of the overhead
 
 
 def truncate_to_bytes(s: str, max_bytes: int, encoding="utf-8"):
