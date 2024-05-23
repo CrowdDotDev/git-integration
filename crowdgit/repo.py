@@ -70,8 +70,12 @@ def get_default_branch(repo_path: str) -> str:
             return output[len(prefix) :]
         else:
             return "master"  # fallback if the output is unexpected
-    except subprocess.CalledProcessError:
-        return "master"
+    except Exception:
+        logger.warning(
+            "Failed trying to get default branch for %s. Assuming repo is in detached mode (*)",
+            repo_path,
+        )
+        return "*"
 
 
 def get_local_repo(remote: str, repos_dir: str) -> str:
@@ -203,6 +207,12 @@ def get_commits(
         commit_range = f"..origin/{default_branch}"
     else:
         commit_range = f"origin/{default_branch}"
+
+    # handling repos in detached mode
+    if new_only and default_branch == "*":
+        commit_range = f"..HEAD"
+    elif not new_only and default_branch == "*":
+        commit_range = f"HEAD"
 
     splitter = "--CROWD-END-OF-COMMIT--"
 
@@ -352,6 +362,12 @@ def get_insertions_deletions(
         commit_range = f"..origin/{default_branch}"
     else:
         commit_range = f"origin/{default_branch}"
+
+    # handling repos in detached mode
+    if new_only and default_branch == "*":
+        commit_range = f"..HEAD"
+    elif not new_only and default_branch == "*":
+        commit_range = f"HEAD"
 
     git_log_command = [
         "git",
