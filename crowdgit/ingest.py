@@ -95,14 +95,17 @@ class SQS:
             message_id = f"{os.environ['TENANT_ID']}-{operation}-{platform}-{deduplication_id}"
 
             body = get_body_json(record)
-
-            response = self.sqs.send_message(
-                QueueUrl=self.sqs_url,
-                MessageAttributes={},
-                MessageBody=body,
-                MessageGroupId=message_id,
-                MessageDeduplicationId=deduplication_id,
-            )
+	    try:
+            	response = self.sqs.send_message(
+                	QueueUrl=self.sqs_url,
+                	MessageAttributes={},
+                	MessageBody=body,
+                	MessageGroupId=message_id,
+                	MessageDeduplicationId=deduplication_id,
+   		 )
+	    except Exception as e:
+	    	logger.warning("Error ingesting commit %s. Skipping this commit", body)
+	        continue
 
             # A response should be something like this:
             #
@@ -156,8 +159,8 @@ class SQS:
         try:
             # print("Skipping messages")
             self.send_messages(segment_id, integration_id, activities, verbose=verbose)
-        except:
-            logger.error("Failed trying to send messages for %s", remote)
+        except Exception as e:
+            logger.error("Failed trying to send messages for %s", remote, str(e))
         finally:
             if os.path.exists(semaphore):
                 os.remove(semaphore)
