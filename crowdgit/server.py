@@ -6,6 +6,7 @@ from crowdgit import LOCAL_DIR
 import asyncio
 from dotenv import load_dotenv
 from crowdgit.repo import get_repo_name
+import logging
 
 load_dotenv()
 
@@ -50,6 +51,7 @@ async def repo_stats(remote: str, token: HTTPAuthorizationCredentials = Depends(
 
     if process.returncode != 0:
         error_message = stderr.decode().strip()
-        raise HTTPException(status_code=500, detail=f"Internal server error: {error_message}")
+        logging.error(f"Error while executing command: {cmd}. Error: {error_message}")
+        raise HTTPException(status_code=500, detail=f"Internal server error")
 
     return {"remote": remote, "num_commits": int(stdout)}
