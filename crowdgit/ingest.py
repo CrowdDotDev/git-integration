@@ -13,11 +13,12 @@ from typing import List, Dict
 from uuid import uuid1 as uuid
 import boto3
 import tqdm
+import shutil
 
 from crowdgit import LOCAL_DIR
 from crowdgit.get_remotes import get_remotes
 from crowdgit.activity import prepare_crowd_activities
-from crowdgit.repo import get_repo_name
+from crowdgit.repo import get_repo_name, get_local_repo, REPOS_DIR, BAD_COMMITS_DIR
 
 from crowdgit.logger import get_logger
 
@@ -247,6 +248,12 @@ def main():
         help="Remote url. Will only ingest a remote comming from the tenant that matches it.",
     )
     parser.add_argument("--verbose", action="store_true", help="Verbose output.")
+    parser.add_argument(
+        "--reonboard",
+        action="store_true",
+        help="Reonboard mode will delete repo and re-onboard.",
+        default=False,
+    )
     args = parser.parse_args()
 
     sqs = SQS()
@@ -265,6 +272,23 @@ def main():
                     f"\n\n{i + 1} / {len(remotes)} segments.\n{j + 1} / {len(remotes[segment_id]['remotes'])} repos."
                 )
             if not args.remote or (args.remote.rstrip(".git") == remote.rstrip(".git")):
+                if args.reonboard:
+                    logger.info("Reonboard mode enabled, deleting repo %s", remote)
+
+                    repo_path = get_local_repo(remote, REPOS_DIR)
+                    if os.path.exists(repo_path):
+                        shutil.rmtree(repo_path)
+                        logger.info("Deleted repo %s", remote)
+                    else:
+                        logger.info("Repo %s not found", remote)
+
+                    bad_commits_path = get_local_repo(remote, BAD_COMMITS_DIR)
+                    if os.path.exists(bad_commits_path):
+                        shutil.rmtree(bad_commits_path)
+                        logger.info("Deleted bad commits for repo %s", remote)
+                    else:
+                        logger.info("Bad commits for repo %s not found", remote)
+
                 logger.info(f"Ingesting {remote} for segment {segment_id}")
                 sqs.ingest_remote(segment_id, integration_id, remote, verbose=args.verbose)
 
