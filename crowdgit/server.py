@@ -46,9 +46,10 @@ async def repo_stats(remote: str, token: HTTPAuthorizationCredentials = Depends(
     process = await asyncio.create_subprocess_shell(
         cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
     )
-    stdout, _ = await process.communicate()
+    stdout, stderr = await process.communicate()
 
     if process.returncode != 0:
-        raise HTTPException(status_code=500, detail="Internal server error")
+        error_message = stderr.decode().strip()
+        raise HTTPException(status_code=500, detail=f"Internal server error: {error_message}")
 
     return {"remote": remote, "num_commits": int(stdout)}
