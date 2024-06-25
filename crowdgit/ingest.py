@@ -265,13 +265,13 @@ def main():
     parser.add_argument(
         "--since",
         type=str,
-        default="",
+        default=None,
         help="Only ingest commits after this date.",
     )
     parser.add_argument(
         "--until",
         type=str,
-        default="",
+        default=None,
         help="Only ingest commits before this date.",
     )
     args = parser.parse_args()
@@ -312,8 +312,15 @@ def main():
                     else:
                         logger.info("Bad commits for repo %s not found", remote)
 
-                logger.info(f"Ingesting {remote} for segment {segment_id}")
-                sqs.ingest_remote(segment_id, integration_id, remote, verbose=args.verbose)
+                logger.info(f"Ingesting {remote} for segment {segment_id} ")
+                sqs.ingest_remote(
+                    segment_id,
+                    integration_id,
+                    remote,
+                    verbose=args.verbose,
+                    since=args.since,
+                    until=args.until,
+                )
 
 
 if __name__ == "__main__":
