@@ -197,7 +197,13 @@ class SQS:
         return responses
 
     def ingest_remote(
-        self, segment_id: str, integration_id: str, remote: str, verbose: bool = False
+        self,
+        segment_id: str,
+        integration_id: str,
+        remote: str,
+        verbose: bool = False,
+        since: str = None,
+        until: str = None,
     ):
         repo_name = get_repo_name(remote)
         semaphore = os.path.join(LOCAL_DIR, "running", repo_name)
@@ -215,7 +221,9 @@ class SQS:
             fout.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
         try:
-            activities = prepare_crowd_activities(remote, verbose=verbose)
+            activities = prepare_crowd_activities(
+                remote, verbose=verbose, since=since, until=until
+            )
 
         except Exception as e:
             logger.error("Failed trying to prepare activities for %s. Error:\n%s", remote, str(e))
@@ -254,7 +262,22 @@ def main():
         help="Reonboard mode will delete repo and re-onboard.",
         default=False,
     )
+    parser.add_argument(
+        "--since",
+        type=str,
+        default="",
+        help="Only ingest commits after this date.",
+    )
+    parser.add_argument(
+        "--until",
+        type=str,
+        default="",
+        help="Only ingest commits before this date.",
+    )
     args = parser.parse_args()
+
+    if args.reonboard and (args.since or args.until):
+        parser.error("Reonboard mode cannot be used with since/until parameters.")
 
     sqs = SQS()
 

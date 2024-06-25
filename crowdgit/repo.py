@@ -523,6 +523,33 @@ def get_new_commits(remote: str, repos_dir: str = REPOS_DIR, verbose: bool = Fal
     return _add_insertions_deletions(new_commits, insertions_deletions)
 
 
+def get_commits_since_until(
+    remote: str, since: str, until: str, repos_dir: str = REPOS_DIR, verbose: bool = False
+) -> List[Dict]:
+    """Get commits from the remote repository since the given date until the given date."""
+
+    repo_path = get_local_repo(remote, repos_dir)
+
+    def _add_insertions_deletions(commits: List, insertions_deletions: Dict) -> List[Dict]:
+        return [
+            commit | insertions_deletions.get(commit["hash"], {"insertions": 0, "deletions": 0})
+            for commit in commits
+        ]
+
+    if not os.path.exists(repo_path):
+        raise KeyError("Repository doens't exist locally")
+
+    default_branch = get_default_branch(repo_path)
+    commits_since_until = get_commits(
+        repo_path, default_branch, verbose=verbose, since=since, until=until
+    )
+    insertions_deletions = get_insertions_deletions(
+        repo_path, default_branch, verbose=verbose, since=since, until=until
+    )
+
+    return _add_insertions_deletions(commits_since_until, insertions_deletions)
+
+
 # :/prompt:get-new-commits
 
 

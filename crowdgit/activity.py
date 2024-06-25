@@ -16,7 +16,7 @@ import dotenv
 
 dotenv.load_dotenv(".env")
 
-from crowdgit.repo import get_repo_name, get_new_commits
+from crowdgit.repo import get_repo_name, get_new_commits, get_commits_since_until
 from crowdgit.activitymap import ActivityMap
 
 from crowdgit.logger import get_logger
@@ -86,7 +86,11 @@ def clean_up_username(name: str):
 
 # pylint: disable=too-many-branches
 def prepare_crowd_activities(
-    remote: str, commits: List[Dict] = None, verbose: bool = False
+    remote: str,
+    commits: List[Dict] = None,
+    verbose: bool = False,
+    since: str = None,
+    until: str = None,
 ) -> List[Dict]:
     def create_activity(
         commit: Dict,
@@ -134,8 +138,10 @@ def prepare_crowd_activities(
 
     activities = []
 
-    if commits is None:
+    if commits is None and since is None and until is None:
         commits = get_new_commits(remote, verbose=verbose)
+    elif commits is None and (since is not None or until is not None):
+        commits = get_commits_since_until(remote, since, until, verbose=verbose)
 
     if verbose:
         commits_iter = tqdm.tqdm(commits, desc="Processing commits")
