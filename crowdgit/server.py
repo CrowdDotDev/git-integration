@@ -74,7 +74,14 @@ async def get_user_name(
     if not os.path.exists(repo_dir):
         raise HTTPException(status_code=404, detail="Repository not found")
 
-    cmd = f"git -C {repo_dir} log --all --pretty=format:'%an <%ae>' | awk '/<{email}>/ {{print; exit}}'"
+    # Search in commit authors and various commit message fields
+    cmd = f"""
+    git -C {repo_dir} log --all --pretty=format:'%an <%ae>%n%b' | 
+    awk -v email="{email}" '
+    /<{email}>/ {{print $0; exit}}
+    /([Ss]igned[-\\s][Oo]ff|[Rr]eviewed|[Aa]pproved|[Ii]nfluenced|[Rr]eported|[Rr]esolved)[-\\s][Bb]y:.*<{email}>/ {{print $0; exit}}
+    '
+    """
     process = await asyncio.create_subprocess_shell(
         cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
     )
@@ -87,7 +94,11 @@ async def get_user_name(
 
     log_output = stdout.decode().strip()
     if log_output:
-        name = log_output.split(" <")[0]
+        # Extract name from the matched line
+        if ":" in log_output:
+            name = log_output.split(":")[1].split("<")[0].strip()
+        else:
+            name = log_output.split(" <")[0]
         return {"email": email, "name": name}
 
     raise HTTPException(status_code=404, detail="User not found")
