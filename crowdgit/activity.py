@@ -64,16 +64,18 @@ def extract_activities(commit_message: List[str]) -> List[Dict[str, Dict[str, st
     True
     """
     activities = []
-    activity_pattern = re.compile(r"([^:]*):\s*(.*)\s*<(.*)>")
+    activity_pattern = re.compile(r"([^:]*):\s*(.*?)\s+<{1,2}([^>]+)>+$")
 
     for line in commit_message:
         match = activity_pattern.match(line)
         if match:
             activity_name, name, email = match.groups()
-            activity_name = activity_name.lower()
+            activity_name = activity_name.strip().lower()
             if activity_name in ActivityMap:
+                name = name.strip()
+                email = email.strip()
                 for activity in ActivityMap[activity_name]:
-                    activities.append({activity: {"name": name.strip(), "email": email.strip()}})
+                    activities.append({activity: {"name": name, "email": email}})
     return activities
 
 
