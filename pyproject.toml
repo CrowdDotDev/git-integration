@@ -22,6 +22,7 @@ dependencies = [
     "gitpython",
     "fastapi[standard]",
     "asyncio",
+    "confluent_kafka",
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
