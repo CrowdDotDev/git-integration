@@ -9,10 +9,10 @@ import os
 import json
 from datetime import datetime
 from typing import List, Dict
-
 from uuid import uuid1 as uuid
-import boto3
+
 import tqdm
+from confluent_kafka import Producer
 import shutil
 
 from crowdgit import LOCAL_DIR
@@ -79,7 +79,7 @@ def truncate_to_bytes(s: str, max_bytes: int, encoding="utf-8"):
     return truncated_string
 
 
-class SQS:
+class Queue:
     """
     Class to handle SQS requests. Can send and receive messages.
     """
@@ -88,14 +88,13 @@ class SQS:
         """
         Initialise class to handle SQS requests.
         """
-        self.sqs_url = os.environ["SQS_ENDPOINT_URL"]
-
-        self.sqs = boto3.client(
-            "sqs",
-            endpoint_url=os.environ["SQS_ENDPOINT_URL"],
-            region_name=os.environ["SQS_REGION"],
-            aws_secret_access_key=os.environ["SQS_SECRET_ACCESS_KEY"],
-            aws_access_key_id=os.environ["SQS_ACCESS_KEY_ID"],
+        self.kafka_topic = os.environ['KAFKA_TOPIC']
+        self.kafka_producer = Producer(
+            {
+                'bootstrap.servers': os.environ['KAFKA_BROKERS'],
+                'client.id': 'git-integration',
+                **json.loads(os.environ['KAFKA_CONFIG']),
+            }
         )
 
     def send_messages(
@@ -166,33 +165,8 @@ class SQS:
 
             body = get_body_json(record)
 
-            response = self.sqs.send_message(
-                QueueUrl=self.sqs_url,
-                MessageAttributes={},
-                MessageBody=body,
-                MessageGroupId=message_id,
-                MessageDeduplicationId=deduplication_id,
-            )
-
-            # A response should be something like this:
-            #
-            # {'MD5OfMessageBody': '31d3385e45172c0b830b83b4cb8cd6e9',
-            #  'MessageId': '6506bf53-60aa-4f4b-bd88-c9065170d030',
-            #  'ResponseMetadata': {'HTTPHeaders': {'content-length': '431',
-            #                                       'content-type': 'text/xml',
-            #                                       'date': 'Wed, 10 May 2023 17:07:41 GMT',
-            #                                       'x-amzn-requestid':
-            #                                          'fbee9fd0-8041-5289-8ba3-c30551dc5ad3'},
-            #                       'HTTPStatusCode': 200,
-            #                       'RequestId': 'fbee9fd0-8041-5289-8ba3-c30551dc5ad3',
-            #                       'RetryAttempts': 0},
-            #  'SequenceNumber': '18877781119960559616'}
-
-            status_code = response["ResponseMetadata"]["HTTPStatusCode"]
-            if status_code == 200:
-                responses.append(response)
-            else:
-                logger.error("Received a %d status code from SQS with %s", status_code, body)
+            self.kafka_producer.produce(self.kafka_topic, key=message_id, value=body)
+            self.kafka_producer.flush()
 
         return responses
 
@@ -232,7 +206,6 @@ class SQS:
             return
 
         try:
-            # print("Skipping messages")
             self.send_messages(segment_id, integration_id, activities, verbose=verbose)
         except Exception as e:
             logger.error("Failed trying to send messages for %s", remote, str(e))
@@ -279,7 +252,7 @@ def main():
     if args.reonboard and (args.since or args.until):
         parser.error("Reonboard mode cannot be used with since/until parameters.")
 
-    sqs = SQS()
+    queue = Queue()
 
     remotes = get_remotes(
         os.environ["CROWD_HOST"],
@@ -313,7 +286,7 @@ def main():
                         logger.info("Bad commits for repo %s not found", remote)
 
                 logger.info(f"Ingesting {remote} for segment {segment_id} ")
-                sqs.ingest_remote(
+                queue.ingest_remote(
                     segment_id,
                     integration_id,
                     remote,
