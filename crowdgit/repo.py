@@ -4,7 +4,7 @@ import os
 import subprocess
 import time
 import re
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Literal
 import datetime
 
 import tqdm
@@ -123,7 +123,7 @@ def is_valid_datetime(commit_datetime: str) -> bool:
         return False
 
 
-def clone_repo(remote: str, repos_dir: str) -> None:
+def clone_repo(remote: str, repos_dir: str) -> None | Literal[1]:
     """Clone the given remote repository to the specified local directory.
 
     :param remote: The remote URL of the repository.
@@ -142,13 +142,23 @@ def clone_repo(remote: str, repos_dir: str) -> None:
 
         logger.info("Cloning %s to %s", remote, repo_path)
         start_time = time.time()
-        subprocess.run(
+        result = subprocess.run(
             ["git", "clone", remote, repo_path],
-            check=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            input=b"\n",  # Simulate pressing Enter to bypass username prompt
         )
         end_time = time.time()
+
+        if result.returncode != 0:
+            error_message = result.stderr.decode("utf-8")
+            if "Username for" in error_message or "Password for" in error_message:
+                logger.warning("Skipping repository %s due to authentication requirement", remote)
+                return 1
+            else:
+                raise E.GitRunError(remote, repo_path, error_message)
+
         logger.info(
             "Repository %s cloned successfully to %s in %d s (%.1f min)",
             remote,
@@ -483,7 +493,9 @@ def get_new_commits(remote: str, repos_dir: str = REPOS_DIR, verbose: bool = Fal
     if not os.path.exists(repo_path):
         # Clone the repo if it doesn't exist
         logger.info("Repo %s not existing locally", repo_path)
-        clone_repo(remote, repos_dir)
+        result = clone_repo(remote, repos_dir)
+        if result == 1:
+            return []
         default_branch = get_default_branch(repo_path)
         insertions_deletions = get_insertions_deletions(
             repo_path, default_branch, new_only=False, verbose=verbose
