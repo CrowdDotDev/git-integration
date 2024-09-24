@@ -4,7 +4,7 @@ import os
 import requests
 import json
 from tqdm import tqdm
-from crowdgit.ingest import SQS
+from crowdgit.ingest import Queue
 from dotenv import load_dotenv
 import time
 
@@ -112,9 +112,9 @@ def get_commit_info(repo, segment_id, integration_id, remote, commit_id, repo_pa
         "segments": [segment_id],
     }
 
-    sqs = SQS()
+    queue = Queue()
 
-    return sqs.send_messages(segment_id, integration_id, [activity])
+    return queue.send_messages(segment_id, integration_id, [activity])
 
 
 def parse_commit_file(commit_file_path, repo_path):
