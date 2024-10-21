@@ -4,12 +4,13 @@ from cm_database import query
 from tqdm import tqdm
 import csv
 import os
+import aiofiles
 
 
-def get_repos_and_scrape():
+async def get_repos_and_scrape():
     try:
         # Query to get the first 100 repos
-        repos = query('SELECT url FROM "githubRepos" ORDER BY RANDOM() LIMIT 100')
+        repos = await query('SELECT url FROM "githubRepos" ORDER BY RANDOM() LIMIT 100')
 
         # Check if the CSV file already exists
         file_exists = os.path.isfile("maintainer_results.csv")

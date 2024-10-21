@@ -1,13 +1,16 @@
-import requests
-from openai import OpenAI
 import os
 import base64
 from dotenv import load_dotenv
-from bedrock import invoke_bedrock
-from enums import ScraperError
+from crowdgit.cm_maintainers_data.bedrock import invoke_bedrock
+from crowdgit.cm_maintainers_data.enums import ScraperError
 import json
 from tqdm import tqdm
 from prettytable import PrettyTable
+from crowdgit import LOCAL_DIR
+from crowdgit.repo import get_local_repo, REPOS_DIR
+from crowdgit.logger import get_logger
+
+logger = get_logger(__name__)
 
 load_dotenv()
 
@@ -25,52 +28,46 @@ maintainer_files = [
     ".github/MAINTAINERS.md",
     ".github/CONTRIBUTORS.md",
 ]
-# GitHub and OpenAI API Keys
-github_token = os.getenv("GITHUB_TOKEN")
-openai_api_key = os.getenv("OPENAI_API_KEY")
-# Initialize OpenAI client
-client = OpenAI(api_key=openai_api_key)
 
 
 # Function to check for maintainer files
-def find_maintainer_file(owner, repo):
-    headers = {"Authorization": f"token {github_token}"}
-    api_url = f"https://api.github.com/repos/{owner}/{repo}/contents/"
+def find_maintainer_file(owner: str, repo: str):
+    remote_url = f"https://github.com/{owner}/{repo}.git"
+    local_repo = "./" + get_local_repo(remote_url, REPOS_DIR)
 
-    try:
-        response = requests.get(api_url, headers=headers)
-        response.raise_for_status()
-        file_structure = response.json()
-        file_names = [file["name"] for file in file_structure if file["type"] == "file"]
+    if not os.path.exists(local_repo):
+        print(f"Local repo {local_repo} does not exist")
+        return None, None, 0
 
-        print(f"\nChecking for maintainer files in {owner}/{repo}...")
+    logger.info(f"\nChecking for maintainer files in {owner}/{repo}...")
 
-        for file in maintainer_files:
-            if file in file_names:
-                file_content_response = requests.get(f"{api_url}{file}", headers=headers)
-                file_content_response.raise_for_status()
-                return file, file_content_response.json()["content"], 0
+    file_names = os.listdir(local_repo)
 
-        print("\nNo maintainer files found using the known file names.")
+    for file in maintainer_files:
+        file_path = os.path.join(local_repo, file)
+        if os.path.isfile(file_path):
+            with open(file_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            return file, base64.b64encode(content.encode()).decode(), 0
 
-        print("\nUsing AI to find maintainer files...")
-        file_name, ai_cost = find_maintainer_file_with_ai(file_names, owner, repo)
+    logger.info("\nNo maintainer files found using the known file names.")
 
-        if file_name:
-            file_content_response = requests.get(f"{api_url}{file_name}", headers=headers)
-            file_content_response.raise_for_status()
-            print(f"\nMaintainer file found: {file_name}")
-            return file_name, file_content_response.json()["content"], ai_cost
-        else:
-            return None, None, ai_cost
-    except requests.exceptions.RequestException as err:
-        print(f"Error fetching file structure: {err}")
+    logger.info("\nUsing AI to find maintainer files...")
+    file_name, ai_cost = find_maintainer_file_with_ai(file_names, owner, repo)
 
-    return None, None, 0
+    if file_name:
+        file_path = os.path.join(local_repo, file_name)
+        if os.path.isfile(file_path):
+            with open(file_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            logger.info(f"\nMaintainer file found: {file_name}")
+            return file_name, base64.b64encode(content.encode()).decode(), ai_cost
+
+    return None, None, ai_cost
 
 
 def update_stats(file_name, owner, repo):
-    stats_file = "ai-found-file-stats.json"
+    stats_file = os.path.join(LOCAL_DIR, "ai-found-file-stats.json")
     if os.path.exists(stats_file):
         with open(stats_file, "r") as f:
             stats = json.load(f)
@@ -174,15 +171,11 @@ def display_maintainer_info(info):
         name = item.get("name", "N/A")
         role = item.get("title", item.get("role", "N/A"))
         table.add_row([username if username != "unknown" else "N/A", name, role])
-    print(table)
+    logger.info("\n%s", table)
 
 
 # Main logic
-def scrape(owner, repo):
-    if github_token is None or openai_api_key is None:
-        print("Please set the GITHUB_TOKEN and OPENAI_API_KEY environment variables.")
-        return {"failed": True, "reason": ScraperError.NO_ENV_VARS, "total_cost": 0}
-
+def scrape(owner: str, repo: str):
     total_cost = 0
 
     file_name, file_content, ai_cost = find_maintainer_file(owner, repo)
@@ -196,13 +189,13 @@ def scrape(owner, repo):
 
     decoded_content = base64.b64decode(file_content).decode("utf-8")
 
-    print(f"\nAnalyzing maintainer file: {file_name}")
+    logger.info(f"\nAnalyzing maintainer file: {file_name}")
     result = analyze_file_content(decoded_content)
     maintainer_info = result["output"].get("info", None)
     total_cost += result["cost"]
 
     if not maintainer_info:
-        print("Failed to analyze the maintainer file content.")
+        logger.error("Failed to analyze the maintainer file content.")
         return {"failed": True, "reason": ScraperError.ANALYSIS_FAILED, "total_cost": total_cost}
 
     return {
@@ -213,13 +206,13 @@ def scrape(owner, repo):
 
 
 if __name__ == "__main__":
-    owner = "elasticdeeplearning"
-    repo = "edl"
+    owner = "serverlessworkflow"
+    repo = "synapse"
 
     result = scrape(owner, repo)
     if "maintainer_info" in result:
         display_maintainer_info(result["maintainer_info"])
     elif "failed" in result:
-        print(f"Failed to scrape {owner}/{repo}: {result['reason']}")
+        logger.error(f"Failed to scrape {owner}/{repo}: {result['reason']}")
     if "total_cost" in result:
-        print(f"Total cost: ${result['total_cost']:.6f}")
+        logger.info(f"Total cost: ${result['total_cost']:.6f}")

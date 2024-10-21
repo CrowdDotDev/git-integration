@@ -1,7 +1,7 @@
 from cm_database import query, execute
-from bedrock import invoke_bedrock
 import json
 from tqdm import tqdm
+import asyncio
 
 
 def load_classified_roles():
@@ -9,14 +9,15 @@ def load_classified_roles():
         return json.load(f)
 
 
-def update_roles():
+async def update_roles():
     classified_roles = load_classified_roles()
 
     sql = """
     SELECT DISTINCT role
     FROM "maintainersInternal"
     """
-    roles = [row["role"] for row in query(sql)]
+    results = await query(sql)
+    roles = [row["role"] for row in results]
 
     for role in tqdm(roles, desc="Updating roles"):
         if role in classified_roles:
@@ -26,18 +27,18 @@ def update_roles():
                 DELETE FROM "maintainersInternal"
                 WHERE role = %s
                 """
-                execute(delete_sql, (role,))
+                await execute(delete_sql, (role,))
             else:
                 update_sql = """
                 UPDATE "maintainersInternal"
                 SET role = %s
                 WHERE role = %s
                 """
-                execute(update_sql, (new_role, role))
+                await execute(update_sql, (new_role, role))
         else:
             print(f"Warning: Role '{role}' not found in classified_roles.json")
 
 
 if __name__ == "__main__":
-    update_roles()
+    asyncio.run(update_roles())
     print("Roles have been updated in the maintainersInternal table")

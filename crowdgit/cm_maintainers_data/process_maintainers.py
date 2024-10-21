@@ -1,10 +1,11 @@
 from cm_database import query, execute
 from tqdm import tqdm
 from slugify import slugify
+import asyncio
 
 
-def process_maintainers(repo_id, repo_url, maintainers):
-    for maintainer in maintainers:
+async def process_maintainers(repo_id: str, repo_url: str, maintainers: list[dict]):
+    async def process_maintainer(maintainer):
         title = maintainer["title"].lower()
         title = (
             title.replace("repository", "").replace("active", "").replace("project", "").strip()
@@ -13,8 +14,8 @@ def process_maintainers(repo_id, repo_url, maintainers):
         # Find the identity in the database
         github_username = maintainer["github_username"]
         if github_username == "unknown":
-            continue
-        identity = query(
+            return
+        identity = await query(
             """
             SELECT id 
             FROM "memberIdentities" 
@@ -26,7 +27,7 @@ def process_maintainers(repo_id, repo_url, maintainers):
         if identity:
             identity_id = identity[0]["id"]
             # Insert maintainer data
-            execute(
+            await execute(
                 """
                 INSERT INTO "maintainersInternal" 
                 (role, "repoUrl", "repoId", "identityId")
@@ -38,3 +39,11 @@ def process_maintainers(repo_id, repo_url, maintainers):
             )
         else:
             tqdm.write(f"Identity not found for GitHub user: {maintainer}")
+
+    semaphore = asyncio.Semaphore(3)
+
+    async def process_with_semaphore(maintainer):
+        async with semaphore:
+            await process_maintainer(maintainer)
+
+    await asyncio.gather(*[process_with_semaphore(maintainer) for maintainer in maintainers])

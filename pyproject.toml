@@ -27,6 +27,7 @@ dependencies = [
     "prettytable >= 3.11.0",
     "psycopg2-binary >= 2.9.9",
     "python-slugify >= 8.0.4",
+    "aiofiles"
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
