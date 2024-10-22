@@ -130,11 +130,29 @@ async def parse_not_parsed():
 
 
 async def parse_already_parsed():
-    pass
+    repos = await query(
+        """
+            SELECT id, url , "lastMaintainerRunAt", "maintainerFile"
+            FROM "githubRepos" 
+            WHERE "lastMaintainerRunAt" IS NOT NULL
+            and "maintainerFile" is not null
+        """
+    )
+
+    # here we will need to check if there are updates to the maintainer file since the last run
 
 
 async def reidentify_repos_with_no_maintainers():
-    pass
+    repos = await query(
+        """
+            SELECT id, url , "lastMaintainerRunAt", "maintainerFile"
+            FROM "githubRepos" 
+            WHERE "lastMaintainerRunAt" IS NOT NULL
+            and "maintainerFile" is null
+        """
+    )
+
+    # here we will need to rerun search for the maintainer file
 
 
 async def main():

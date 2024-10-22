@@ -9,6 +9,7 @@ from prettytable import PrettyTable
 from crowdgit import LOCAL_DIR
 from crowdgit.repo import get_local_repo, REPOS_DIR
 from crowdgit.logger import get_logger
+from datetime import datetime
 
 logger = get_logger(__name__)
 
@@ -28,6 +29,23 @@ maintainer_files = [
     ".github/MAINTAINERS.md",
     ".github/CONTRIBUTORS.md",
 ]
+
+
+def check_for_updates(file_name: str, owner: str, repo: str, last_run_at: datetime) -> str:
+    remote_url = f"https://github.com/{owner}/{repo}.git"
+    local_repo = "./" + get_local_repo(remote_url, REPOS_DIR)
+    file_path = os.path.join(local_repo, file_name)
+    if os.path.exists(file_path):
+        import subprocess
+
+        last_run_at_str = last_run_at.strftime("%Y-%m-%d %H:%M:%S")
+        cmd = f"git log -1 --since='{last_run_at_str}' --format=%H -- {file_path}"
+        result = subprocess.run(cmd, cwd=local_repo, capture_output=True, text=True, shell=True)
+        if result.stdout.strip():
+            with open(file_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            return base64.b64encode(content.encode()).decode()
+    return None
 
 
 # Function to check for maintainer files
