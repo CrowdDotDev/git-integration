@@ -25,9 +25,8 @@ dependencies = [
     "confluent_kafka",
     "openai >= 1.45.0",
     "prettytable >= 3.11.0",
-    "psycopg2-binary >= 2.9.9",
     "python-slugify >= 8.0.4",
-    "aiofiles"
+    "asyncpg"
 ]
 classifiers = [
     "Programming Language :: Python :: 3",

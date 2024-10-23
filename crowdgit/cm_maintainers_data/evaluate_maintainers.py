@@ -4,7 +4,6 @@ from cm_database import query
 from tqdm import tqdm
 import csv
 import os
-import aiofiles
 
 
 async def get_repos_and_scrape():

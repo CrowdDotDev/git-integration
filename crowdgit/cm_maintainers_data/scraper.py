@@ -7,13 +7,18 @@ import json
 from tqdm import tqdm
 from prettytable import PrettyTable
 from crowdgit import LOCAL_DIR
-from crowdgit.repo import get_local_repo, REPOS_DIR
+from crowdgit.repo import get_local_repo, get_repo_name
 from crowdgit.logger import get_logger
 from datetime import datetime
+import subprocess
+
 
 logger = get_logger(__name__)
 
 load_dotenv()
+
+DEFAULT_REPOS_DIR = os.path.join("..", LOCAL_DIR, "repos")
+REPOS_DIR = os.environ.get("REPOS_DIR", DEFAULT_REPOS_DIR)
 
 # List of common maintainer file names
 maintainer_files = [
@@ -31,27 +36,34 @@ maintainer_files = [
 ]
 
 
-def check_for_updates(file_name: str, owner: str, repo: str, last_run_at: datetime) -> str:
+def check_for_updates(file_name: str, owner: str, repo: str, last_run_at: datetime):
     remote_url = f"https://github.com/{owner}/{repo}.git"
-    local_repo = "./" + get_local_repo(remote_url, REPOS_DIR)
+    local_repo = get_local_repo(remote_url, REPOS_DIR)
     file_path = os.path.join(local_repo, file_name)
+    dir_name = get_repo_name(remote_url)
+    repo_dir = os.path.join(REPOS_DIR, dir_name)
     if os.path.exists(file_path):
-        import subprocess
-
         last_run_at_str = last_run_at.strftime("%Y-%m-%d %H:%M:%S")
-        cmd = f"git log -1 --since='{last_run_at_str}' --format=%H -- {file_path}"
-        result = subprocess.run(cmd, cwd=local_repo, capture_output=True, text=True, shell=True)
+        cmd = (
+            f"git -C {repo_dir} log -1 --since='{last_run_at_str}' --format=%H:%ct -- {file_name}"
+        )
+        result = subprocess.run(cmd, capture_output=True, text=True, shell=True)
         if result.stdout.strip():
+            _, commit_timestamp = result.stdout.strip().split(":")
+            last_modified = datetime.fromtimestamp(int(commit_timestamp))
             with open(file_path, "r", encoding="utf-8") as f:
                 content = f.read()
-            return base64.b64encode(content.encode()).decode()
+            return {
+                "content": base64.b64encode(content.encode()).decode(),
+                "last_modified": last_modified,
+            }
     return None
 
 
 # Function to check for maintainer files
 def find_maintainer_file(owner: str, repo: str):
     remote_url = f"https://github.com/{owner}/{repo}.git"
-    local_repo = "./" + get_local_repo(remote_url, REPOS_DIR)
+    local_repo = get_local_repo(remote_url, REPOS_DIR)
 
     if not os.path.exists(local_repo):
         print(f"Local repo {local_repo} does not exist")
@@ -190,6 +202,20 @@ def display_maintainer_info(info):
         role = item.get("title", item.get("role", "N/A"))
         table.add_row([username if username != "unknown" else "N/A", name, role])
     logger.info("\n%s", table)
+
+
+def scrape_updates(file_content):
+    decoded_content = base64.b64decode(file_content).decode("utf-8")
+    result = analyze_file_content(decoded_content)
+    maintainer_info = result["output"].get("info", None)
+    cost = result["cost"]
+    if not maintainer_info:
+        logger.error("Failed to analyze the maintainer file content.")
+        return {"failed": True, "reason": ScraperError.ANALYSIS_FAILED, "cost": cost}
+    return {
+        "maintainer_info": maintainer_info,
+        "cost": cost,
+    }
 
 
 # Main logic

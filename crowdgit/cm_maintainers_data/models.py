@@ -1,5 +1,4 @@
 from enum import Enum
-from typing import List, Dict, Optional, TypedDict, Union, Tuple
 
 
 class ScraperError(Enum):

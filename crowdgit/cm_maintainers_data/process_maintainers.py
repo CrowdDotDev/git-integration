@@ -1,7 +1,19 @@
-from cm_database import query, execute
+from crowdgit.cm_maintainers_data.cm_database import query, execute
 from tqdm import tqdm
 from slugify import slugify
 import asyncio
+
+
+async def compare_maintainers(repo_id: str, repo_url: str, maintainers: list[dict]):
+    current_maintainers = await query(
+        """
+        SELECT mi.role, mi."repoUrl", mi."repoId", mi."identityId", mem.value as github_username
+        FROM "maintainersInternal" mi
+        JOIN "memberIdentities" mem ON mi."identityId" = mem.id
+        WHERE mi."repoId" = %s AND mem.platform = 'github' AND mem.type = 'username' and mem.verified = True
+        """,
+        (repo_id,),
+    )
 
 
 async def process_maintainers(repo_id: str, repo_url: str, maintainers: list[dict]):

@@ -1,5 +1,5 @@
 from urllib.parse import urlparse
-from crowdgit.cm_maintainers_data.scraper import scrape
+from crowdgit.cm_maintainers_data.scraper import scrape, check_for_updates
 from crowdgit.cm_maintainers_data.cm_database import query, execute
 import os
 from datetime import datetime
@@ -8,6 +8,8 @@ import csv
 import asyncio
 from crowdgit.logger import get_logger
 from crowdgit import LOCAL_DIR
+from datetime import datetime, timedelta
+import base64
 
 logger = get_logger(__name__)
 
@@ -140,26 +142,99 @@ async def parse_already_parsed():
     )
 
     # here we will need to check if there are updates to the maintainer file since the last run
+    for repo in repos:
+        repo_id = repo["id"]
+        url = repo["url"]
+        parsed_url = urlparse(url)
+        path_parts = parsed_url.path.strip("/").split("/")
+
+        if len(path_parts) >= 2:
+            owner, repo_name = path_parts[:2]
+            if owner == "envoyproxy":
+                continue  # Skip envoyproxy repos for now
+
+            logger.info(f"\nProcessing repo: github.com/{owner}/{repo_name}")
+            try:
+                result = check_for_updates(
+                    repo["maintainerFile"], owner, repo_name, repo["lastMaintainerRunAt"]
+                )
+
+                if result is not None:
+                    if isinstance(result, dict) and "maintainer_info" in result:
+                        maintainer_info = result["maintainer_info"]
+
+                        await process_maintainers(repo_id, url, maintainer_info)
+
+                        # Update githubRepos table
+                        await execute(
+                            """
+                            UPDATE "githubRepos"
+                            SET  "lastMaintainerRunAt" = %s
+                            WHERE id = %s
+                            """,
+                            (datetime.now(), repo_id),
+                        )
+
+                        logger.info(f"Successfully processed maintainers for {owner}/{repo_name}")
+
+                        if GET_COST:
+                            update_cost_csv(url, result["total_cost"])
+                    else:
+                        await execute(
+                            """
+                            UPDATE "githubRepos"
+                            SET "lastMaintainerRunAt" = %s
+                            WHERE id = %s
+                            """,
+                            (datetime.now(), repo_id),
+                        )
+                        logger.warning(
+                            f"Failed to re-scrape maintainers for {owner}/{repo_name}: {result.get('reason', 'Unknown error')}"
+                        )
+
+                        if GET_COST and "total_cost" in result:
+                            update_cost_csv(url, result["total_cost"])
+                else:
+                    logger.info(f"No updates found for {owner}/{repo_name}")
+            except Exception as error:
+                logger.error(f"Error processing repo {url}: {error}")
+                write_failed_repo(url, owner, repo_name, str(error))
+        else:
+            logger.error(f"Invalid GitHub URL format: {url}")
+            write_failed_repo(url, "", "", "Invalid GitHub URL format")
 
 
-async def reidentify_repos_with_no_maintainers():
+async def reidentify_repos_with_no_maintainer_file():
     repos = await query(
         """
-            SELECT id, url , "lastMaintainerRunAt", "maintainerFile"
+            SELECT id, url, "lastMaintainerRunAt", "maintainerFile"
             FROM "githubRepos" 
             WHERE "lastMaintainerRunAt" IS NOT NULL
-            and "maintainerFile" is null
+            AND "maintainerFile" IS NULL
         """
     )
 
-    # here we will need to rerun search for the maintainer file
+    for repo in repos:
+        url = repo["url"]
+        parsed_url = urlparse(url)
+        path_parts = parsed_url.path.strip("/").split("/")
+
+        if len(path_parts) >= 2:
+            owner, repo_name = path_parts[:2]
+            if owner == "envoyproxy":
+                continue  # Skip envoyproxy repos for now
+
+            logger.info(f"\nProcessing repo: github.com/{owner}/{repo_name}")
+
+            # Here we will need to rerun search for the maintainer file
+            # TODO: Implement the search for maintainer file
 
 
 async def main():
     async with asyncio.TaskGroup() as tg:
         tg.create_task(parse_not_parsed())
         tg.create_task(parse_already_parsed())
-        tg.create_task(reidentify_repos_with_no_maintainers())
+        tg.create_task(reidentify_repos_with_no_maintainer_file())
 
 
 if __name__ == "__main__":
