@@ -295,12 +295,16 @@ async def reidentify_repos_with_no_maintainer_file():
             write_failed_repo(url, owner, repo_name, str(error))
 
 
-async def main():
+async def run():
     async with asyncio.TaskGroup() as tg:
         tg.create_task(parse_not_parsed())
         tg.create_task(parse_already_parsed())
         tg.create_task(reidentify_repos_with_no_maintainer_file())
 
 
+def main():
+    asyncio.run(run())
+
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
