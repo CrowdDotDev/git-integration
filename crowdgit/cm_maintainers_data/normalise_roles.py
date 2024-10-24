@@ -25,14 +25,14 @@ async def update_roles():
             if new_role == "delete":
                 delete_sql = """
                 DELETE FROM "maintainersInternal"
-                WHERE role = %s
+                WHERE role = $1
                 """
                 await execute(delete_sql, (role,))
             else:
                 update_sql = """
                 UPDATE "maintainersInternal"
-                SET role = %s
-                WHERE role = %s
+                SET role = $1
+                WHERE role = $2
                 """
                 await execute(update_sql, (new_role, role))
         else:

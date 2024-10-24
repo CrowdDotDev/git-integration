@@ -2,27 +2,111 @@ from crowdgit.cm_maintainers_data.cm_database import query, execute
 from tqdm import tqdm
 from slugify import slugify
 import asyncio
+from datetime import datetime
 
 
-async def compare_maintainers(repo_id: str, repo_url: str, maintainers: list[dict]):
+def make_role(title: str):
+    title = title.lower()
+    title = title.replace("repository", "").replace("active", "").replace("project", "").strip()
+    return slugify(title)
+
+
+async def compare_and_update_maintainers(
+    repo_id: str, repo_url: str, maintainers: list[dict], change_date: datetime
+):
     current_maintainers = await query(
         """
         SELECT mi.role, mi."repoUrl", mi."repoId", mi."identityId", mem.value as github_username
         FROM "maintainersInternal" mi
         JOIN "memberIdentities" mem ON mi."identityId" = mem.id
-        WHERE mi."repoId" = %s AND mem.platform = 'github' AND mem.type = 'username' and mem.verified = True
+        WHERE mi."repoId" = $1 AND mem.platform = 'github' AND mem.type = 'username' and mem.verified = True
         """,
         (repo_id,),
     )
 
+    current_maintainers_dict = {m["github_username"]: m for m in current_maintainers}
+    new_maintainers_dict = {m["github_username"]: m for m in maintainers}
+
+    for github_username, maintainer in new_maintainers_dict.items():
+        if github_username == "unknown":
+            continue
+        elif github_username not in current_maintainers_dict:
+            # New maintainer
+            identity = await query(
+                """
+                SELECT id 
+                FROM "memberIdentities" 
+                WHERE platform = 'github' AND value = $1
+                LIMIT 1
+                """,
+                (github_username,),
+            )
+            if identity:
+                identity_id = identity[0]["id"]
+                role = make_role(maintainer["title"])
+                await execute(
+                    """
+                    INSERT INTO "maintainersInternal" 
+                    (role, "repoUrl", "repoId", "identityId", "startDate")
+                    VALUES ($1, $2, $3, $4, $5)
+                    """,
+                    (role, repo_url, repo_id, identity_id, change_date),
+                )
+        else:
+            # Existing maintainer
+            current_maintainer = current_maintainers_dict[github_username]
+            role = make_role(maintainer["title"])
+            if current_maintainer["role"] != role:
+                # Role has changed
+                await execute(
+                    """
+                    UPDATE "maintainersInternal"
+                    SET "endDate" = $1
+                    WHERE "repoId" = $2 AND "identityId" = $3 AND role = $4
+                    """,
+                    (
+                        change_date,
+                        repo_id,
+                        current_maintainer["identityId"],
+                        current_maintainer["role"],
+                    ),
+                )
+                await execute(
+                    """
+                    INSERT INTO "maintainersInternal" 
+                    (role, "repoUrl", "repoId", "identityId", "startDate")
+                    VALUES ($1, $2, $3, $4, $5)
+                    """,
+                    (
+                        role,
+                        repo_url,
+                        repo_id,
+                        current_maintainer["identityId"],
+                        change_date,
+                    ),
+                )
+
+    for github_username, current_maintainer in current_maintainers_dict.items():
+        if github_username not in new_maintainers_dict:
+            # Maintainer no longer exists
+            await execute(
+                """
+                UPDATE "maintainersInternal"
+                SET "endDate" = $1
+                WHERE "repoId" = $2 AND "identityId" = $3 AND role = $4
+                """,
+                (
+                    change_date,
+                    repo_id,
+                    current_maintainer["identityId"],
+                    current_maintainer["role"],
+                ),
+            )
+
 
 async def process_maintainers(repo_id: str, repo_url: str, maintainers: list[dict]):
     async def process_maintainer(maintainer):
-        title = maintainer["title"].lower()
-        title = (
-            title.replace("repository", "").replace("active", "").replace("project", "").strip()
-        )
-        role = slugify(title)
+        role = make_role(maintainer["title"])
         # Find the identity in the database
         github_username = maintainer["github_username"]
         if github_username == "unknown":
@@ -31,7 +115,7 @@ async def process_maintainers(repo_id: str, repo_url: str, maintainers: list[dic
             """
             SELECT id 
             FROM "memberIdentities" 
-            WHERE platform = 'github' AND value = %s
+            WHERE platform = 'github' AND value = $1
             LIMIT 1
         """,
             (github_username,),
@@ -43,7 +127,7 @@ async def process_maintainers(repo_id: str, repo_url: str, maintainers: list[dic
                 """
                 INSERT INTO "maintainersInternal" 
                 (role, "repoUrl", "repoId", "identityId")
-                VALUES (%s, %s, %s, %s)
+                VALUES ($1, $2, $3, $4)
                 ON CONFLICT ("repoId", "identityId") DO UPDATE
                 SET role = EXCLUDED.role, "updatedAt" = NOW()
             """,

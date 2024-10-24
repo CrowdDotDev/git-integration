@@ -39,9 +39,11 @@ maintainer_files = [
 def check_for_updates(file_name: str, owner: str, repo: str, last_run_at: datetime):
     remote_url = f"https://github.com/{owner}/{repo}.git"
     local_repo = get_local_repo(remote_url, REPOS_DIR)
+
     file_path = os.path.join(local_repo, file_name)
     dir_name = get_repo_name(remote_url)
     repo_dir = os.path.join(REPOS_DIR, dir_name)
+
     if os.path.exists(file_path):
         last_run_at_str = last_run_at.strftime("%Y-%m-%d %H:%M:%S")
         cmd = (
@@ -66,8 +68,8 @@ def find_maintainer_file(owner: str, repo: str):
     local_repo = get_local_repo(remote_url, REPOS_DIR)
 
     if not os.path.exists(local_repo):
-        print(f"Local repo {local_repo} does not exist")
-        return None, None, 0
+        logger.error(f"Local repo {local_repo} does not exist")
+        raise KeyError(f"Local repo {local_repo} does not exist")
 
     logger.info(f"\nChecking for maintainer files in {owner}/{repo}...")
 
@@ -222,8 +224,16 @@ def scrape_updates(file_content):
 def scrape(owner: str, repo: str):
     total_cost = 0
 
-    file_name, file_content, ai_cost = find_maintainer_file(owner, repo)
-    total_cost += ai_cost
+    try:
+        file_name, file_content, ai_cost = find_maintainer_file(owner, repo)
+        total_cost += ai_cost
+    except KeyError:
+        return {
+            "failed": True,
+            "reason": ScraperError.LOCAL_REPO_NOT_FOUND,
+            "total_cost": total_cost,
+        }
+
     if not file_name or not file_content:
         return {
             "failed": True,
