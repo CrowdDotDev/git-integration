@@ -284,8 +284,8 @@ async def reidentify_repos_with_no_maintainer_file():
 async def run():
     async with asyncio.TaskGroup() as tg:
         tg.create_task(parse_not_parsed())
-        tg.create_task(parse_already_parsed())
-        tg.create_task(reidentify_repos_with_no_maintainer_file())
+        # tg.create_task(parse_already_parsed())
+        # tg.create_task(reidentify_repos_with_no_maintainer_file())
 
 
 def main():

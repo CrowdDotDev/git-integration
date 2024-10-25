@@ -10,37 +10,31 @@ logger = get_logger(__name__)
 load_dotenv()
 
 
-async def ensure_db_connection():
-    try:
-        conn = await get_db_connection(is_read_operation=True)
-        try:
-            await conn.execute("SELECT 1")
-        finally:
-            await conn.close()
-    except asyncpg.exceptions.ConnectionDoesNotExistError:
-        logger.warn("Database connection closed. Restarting db-ssh and db-port...")
-        logger.warn("Waiting for connection to be re-established...")
-        await asyncio.sleep(10)  # Wait for 10 seconds before retrying
-    except asyncpg.exceptions.InternalClientError as e:
-        logger.error(f"Internal client error during connection: {e}")
-        raise
-
-
 async def get_db_connection(is_read_operation: bool = True):
     db_params = {
-        "database": "cmProduction",
-        "user": "cmProdUser",
+        "database": os.getenv("DB_DATABASE"),
+        "user": os.getenv("DB_USER"),
         "password": os.getenv("DB_PASSWORD"),
-        "host": "localhost",
-        "port": "5445" if is_read_operation else "5444",
+        "host": os.getenv("DB_HOST"),
+        "port": os.getenv("DB_PORT_READ") if is_read_operation else os.getenv("DB_PORT_WRITE"),
     }
-    if db_params["password"] is None:
-        raise ValueError("DB_PASSWORD environment variable is not set")
+    required_env_vars = [
+        "DB_DATABASE",
+        "DB_USER",
+        "DB_PASSWORD",
+        "DB_HOST",
+        "DB_PORT_READ",
+        "DB_PORT_WRITE",
+    ]
+    missing_env_vars = [var for var in required_env_vars if os.getenv(var) is None]
+    if missing_env_vars:
+        raise ValueError(
+            f"The following environment variables are not set: {', '.join(missing_env_vars)}"
+        )
     return await asyncpg.connect(**db_params)
 
 
 async def query(sql: str, params: tuple = None) -> List[Dict[str, Any]]:
-    await ensure_db_connection()
     try:
         conn = await get_db_connection(is_read_operation=True)
         try:
@@ -54,7 +48,6 @@ async def query(sql: str, params: tuple = None) -> List[Dict[str, Any]]:
 
 
 async def execute(sql: str, params: tuple = None) -> None:
-    await ensure_db_connection()
     try:
         conn = await get_db_connection(is_read_operation=False)
         try:
