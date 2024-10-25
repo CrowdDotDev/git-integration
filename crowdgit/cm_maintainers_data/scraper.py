@@ -11,14 +11,56 @@ from crowdgit.repo import get_local_repo, get_repo_name
 from crowdgit.logger import get_logger
 from datetime import datetime
 import subprocess
+from pydantic import BaseModel
+from typing import Optional, List, Literal
 
 
 logger = get_logger(__name__)
 
 load_dotenv()
 
-DEFAULT_REPOS_DIR = os.path.join("..", LOCAL_DIR, "repos")
+DEFAULT_REPOS_DIR = os.path.join("..", "..", LOCAL_DIR, "repos")
 REPOS_DIR = os.environ.get("REPOS_DIR", DEFAULT_REPOS_DIR)
+
+
+class MaintainerFile(BaseModel):
+    file_name: Optional[str] = None
+    error: Optional[str] = None
+
+
+class MaintainerInfoItem(BaseModel):
+    github_username: Optional[str] = None
+    name: Optional[str] = None
+    title: Optional[str] = None
+    normalized_title: Optional[Literal["maintainer", "contributor"]] = None
+
+
+class MaintainerInfo(BaseModel):
+    info: Optional[list[MaintainerInfoItem]] = None
+    error: Optional[str] = None
+
+
+class AggregatedMaintainerInfoItems(BaseModel):
+    info: List[MaintainerInfoItem]
+
+
+class AggregatedMaintainerInfo(BaseModel):
+    output: AggregatedMaintainerInfoItems
+    cost: float
+
+
+class ScrapeResult(BaseModel):
+    maintainer_file: Optional[str] = None
+    maintainer_info: Optional[List[MaintainerInfoItem]] = None
+    total_cost: float = 0
+    failed: Optional[bool] = False
+    reason: Optional[ScraperError] = None
+
+
+class ScrapeUpdateResult(BaseModel):
+    output: Optional[AggregatedMaintainerInfo]
+    last_modified: Optional[datetime] = None
+
 
 # List of common maintainer file names
 maintainer_files = [
@@ -55,10 +97,13 @@ def check_for_updates(file_name: str, owner: str, repo: str, last_run_at: dateti
             last_modified = datetime.fromtimestamp(int(commit_timestamp))
             with open(file_path, "r", encoding="utf-8") as f:
                 content = f.read()
-            return {
-                "content": base64.b64encode(content.encode()).decode(),
-                "last_modified": last_modified,
-            }
+
+            decoded_content = base64.b64encode(content.encode()).decode("utf-8")
+            result = analyze_file_content(decoded_content)
+            return ScrapeUpdateResult(
+                output=result,
+                last_modified=last_modified,
+            )
     return None
 
 
@@ -71,7 +116,7 @@ def find_maintainer_file(owner: str, repo: str):
         logger.error(f"Local repo {local_repo} does not exist")
         raise KeyError(f"Local repo {local_repo} does not exist")
 
-    logger.info(f"\nChecking for maintainer files in {owner}/{repo}...")
+    logger.info(f"Checking for maintainer files in {owner}/{repo}...")
 
     file_names = os.listdir(local_repo)
 
@@ -130,27 +175,29 @@ def find_maintainer_file_with_ai(file_names, owner, repo):
         "{FILE_NAMES}",
     )
     replacements = {"EXAMPLE_FILES": maintainer_files, "FILE_NAMES": file_names}
-    result = invoke_bedrock(instructions, replacements=replacements)
+    result = invoke_bedrock(instructions, pydantic_model=MaintainerFile, replacements=replacements)
 
-    if "file_name" in result["output"]:
-        file_name = result["output"]["file_name"]
+    if result.output.file_name is not None:
+        file_name = result.output.file_name
         update_stats(file_name, owner, repo)
-        return file_name, result["cost"]
+        return file_name, result.cost
     else:
-        return None, result["cost"]
+        return None, result.cost
 
 
-def analyze_file_content(content):
+def analyze_file_content(content: str):
     instructions = (
         "Analyze the following content from a GitHub repository file and extract maintainer information.",
         "The information should include GitHub usernames, names, and their titles or roles if available.",
         "If GitHub usernames are not explicitly mentioned, try to infer them from the names or any links provided.",
         "Present the information as a list of JSON objects.",
-        "Each JSON object should have 'github_username', 'name', and 'title' fields.",
+        "Each JSON object should have 'github_username', 'name', 'title' and 'normalized_title' fields.",
         "The title field should be a string that describes the maintainer's role or title,",
         "it should have a maximum of two words,",
         "and it should not contain words that do not add information, like 'repository', 'active', or 'project'.",
         "The title has to be related to ownershop, maintainership, review, governance, or similar. It cannot be Software Engineer, for example.",
+        "The 'normalized_title' field should be either maintainer or contributor, nothing else.",
+        "Select the most appropriate 'normalized_title for each maintainer given all the info.",
         "If a GitHub username can't be determined, use 'unknown' as the value.",
         "If you canot find any maintainer information, return {error: 'not_found'}",
         "If the content is not talking about a person, rather a group or team (for example config.yaml @LFDT-Hiero/lf-staff), return {error: 'not_found'}",
@@ -169,21 +216,32 @@ def analyze_file_content(content):
             chunks.append(content[:split_index])
             content = content[split_index:].lstrip()
 
-        aggregated_info = {"output": {"info": []}, "cost": 0}
+        aggregated_info = AggregatedMaintainerInfo(
+            output=AggregatedMaintainerInfoItems(info=[]), cost=0
+        )
         for i, chunk in enumerate(chunks, 1):
-            chunk_info = invoke_bedrock(instructions, replacements={"CONTENT": chunk})
-            if "info" in chunk_info["output"]:
-                aggregated_info["output"]["info"].extend(chunk_info["output"]["info"])
-            aggregated_info["cost"] += chunk_info["cost"]
+            chunk_info = invoke_bedrock(
+                instructions, pydantic_model=MaintainerInfo, replacements={"CONTENT": chunk}
+            )
+            if chunk_info.output.info is not None:
+                aggregated_info.output.info.extend(chunk_info.output.info)
+            aggregated_info.cost += chunk_info.cost
         maintainer_info = aggregated_info
     else:
-        maintainer_info = invoke_bedrock(instructions, replacements={"CONTENT": content})
+        maintainer_info = invoke_bedrock(
+            instructions, pydantic_model=MaintainerInfo, replacements={"CONTENT": content}
+        )
 
     try:
-        if "info" in maintainer_info["output"]:
-            return maintainer_info
-        elif maintainer_info["output"].get("error", None) == "not_found":
-            return {"output": {"info": None}, "cost": maintainer_info["cost"]}
+        if maintainer_info.output.info is not None:
+            return AggregatedMaintainerInfo(
+                output=AggregatedMaintainerInfoItems(info=maintainer_info.output.info),
+                cost=maintainer_info.cost,
+            )
+        elif maintainer_info.output.error == "not_found":
+            return AggregatedMaintainerInfo(
+                output=AggregatedMaintainerInfoItems(info=None), cost=maintainer_info.cost
+            )
         else:
             raise ValueError(
                 "Expected a list of maintainer info or an error message, got: "
@@ -194,14 +252,14 @@ def analyze_file_content(content):
 
 
 # Function to display maintainer info in a table
-def display_maintainer_info(info):
+def display_maintainer_info(info: list[MaintainerInfoItem]):
     table = PrettyTable()
     table.field_names = ["GitHub Username", "Name", "Title/Role"]
     table.align = "l"
     for item in info:
-        username = item.get("github_username", "unknown")
-        name = item.get("name", "N/A")
-        role = item.get("title", item.get("role", "N/A"))
+        username = item.github_username or "unknown"
+        name = item.name or "N/A"
+        role = item.title or item.role or "N/A"
         table.add_row([username if username != "unknown" else "N/A", name, role])
     logger.info("\n%s", table)
 
@@ -209,9 +267,9 @@ def display_maintainer_info(info):
 def scrape_updates(file_content):
     decoded_content = base64.b64decode(file_content).decode("utf-8")
     result = analyze_file_content(decoded_content)
-    maintainer_info = result["output"].get("info", None)
-    cost = result["cost"]
-    if not maintainer_info:
+    maintainer_info = result.output.info
+    cost = result.cost
+    if maintainer_info is None:
         logger.error("Failed to analyze the maintainer file content.")
         return {"failed": True, "reason": ScraperError.ANALYSIS_FAILED, "cost": cost}
     return {
@@ -228,45 +286,49 @@ def scrape(owner: str, repo: str):
         file_name, file_content, ai_cost = find_maintainer_file(owner, repo)
         total_cost += ai_cost
     except KeyError:
-        return {
-            "failed": True,
-            "reason": ScraperError.LOCAL_REPO_NOT_FOUND,
-            "total_cost": total_cost,
-        }
+        return ScrapeResult(
+            total_cost=total_cost,
+            failed=True,
+            reason=ScraperError.LOCAL_REPO_NOT_FOUND,
+        )
 
     if not file_name or not file_content:
-        return {
-            "failed": True,
-            "reason": ScraperError.NO_MAINTAINER_FILE,
-            "total_cost": total_cost,
-        }
+        return ScrapeResult(
+            total_cost=total_cost,
+            failed=True,
+            reason=ScraperError.NO_MAINTAINER_FILE,
+        )
 
     decoded_content = base64.b64decode(file_content).decode("utf-8")
 
-    logger.info(f"\nAnalyzing maintainer file: {file_name}")
+    logger.info(f"Analyzing maintainer file: {file_name}")
     result = analyze_file_content(decoded_content)
-    maintainer_info = result["output"].get("info", None)
-    total_cost += result["cost"]
+    maintainer_info = result.output.info
+    total_cost += result.cost
 
     if not maintainer_info:
         logger.error("Failed to analyze the maintainer file content.")
-        return {"failed": True, "reason": ScraperError.ANALYSIS_FAILED, "total_cost": total_cost}
+        return ScrapeResult(
+            total_cost=total_cost,
+            failed=True,
+            reason=ScraperError.ANALYSIS_FAILED,
+        )
 
-    return {
-        "maintainer_file": file_name,
-        "maintainer_info": maintainer_info,
-        "total_cost": total_cost,
-    }
+    return ScrapeResult(
+        maintainer_file=file_name,
+        maintainer_info=maintainer_info,
+        total_cost=total_cost,
+    )
 
 
 if __name__ == "__main__":
-    owner = "serverlessworkflow"
-    repo = "synapse"
+    owner = "keylime"
+    repo = "keylime"
 
     result = scrape(owner, repo)
-    if "maintainer_info" in result:
-        display_maintainer_info(result["maintainer_info"])
-    elif "failed" in result:
-        logger.error(f"Failed to scrape {owner}/{repo}: {result['reason']}")
-    if "total_cost" in result:
-        logger.info(f"Total cost: ${result['total_cost']:.6f}")
+    if result.maintainer_info is not None:
+        print("Maintainer info:", result.maintainer_info)
+    elif result.failed:
+        logger.error(f"Failed to scrape {owner}/{repo}: {result.reason}")
+    if result.total_cost is not None:
+        logger.info(f"Total cost: ${result.total_cost:.6f}")

@@ -1,9 +1,23 @@
 import json
 import boto3
-import json
+from crowdgit.logger import get_logger
+from pydantic import BaseModel, ValidationError
+from typing import Generic, TypeVar
+
+T = TypeVar("T", bound=BaseModel)
 
 
-def invoke_bedrock(instructions, replacements=None, max_tokens=120000, temperature=0):
+class BedrockResponse(BaseModel, Generic[T]):
+    output: T
+    cost: float
+
+
+logger = get_logger(__name__)
+
+
+def invoke_bedrock(
+    instructions, pydantic_model: type[T], replacements=None, max_tokens=120000, temperature=0
+) -> BedrockResponse[T]:
     bedrock_client = boto3.client(service_name="bedrock-runtime", region_name="us-east-1")
 
     # Join the instructions into a single string
@@ -62,11 +76,18 @@ def invoke_bedrock(instructions, replacements=None, max_tokens=120000, temperatu
             output_cost = (output_tokens / 1000) * 0.015
             total_cost = input_cost + output_cost
 
-            return {"output": output, "cost": total_cost}
+            # Validate output with the provided model if it exists
+            try:
+                validated_output = pydantic_model.model_validate(output, strict=True)
+            except ValidationError as ve:
+                logger.error(f"Output validation failed: {ve}")
+                raise ve
+
+            return BedrockResponse[T](output=validated_output, cost=total_cost)
         except Exception as e:
-            print(f"Failed to parse the response as JSON. Raw response:")
-            print(response_body["content"][0]["text"])
+            logger.error(f"Failed to parse the response as JSON. Raw response:")
+            logger.error(response_body["content"][0]["text"])
             raise e
     except Exception as e:
-        print(f"Amazon Bedrock API error: {e}")
+        logger.error(f"Amazon Bedrock API error: {e}")
         raise e

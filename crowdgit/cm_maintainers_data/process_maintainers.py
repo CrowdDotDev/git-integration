@@ -1,4 +1,5 @@
 from crowdgit.cm_maintainers_data.cm_database import query, execute
+from crowdgit.cm_maintainers_data.scraper import MaintainerInfoItem
 from tqdm import tqdm
 from slugify import slugify
 import asyncio
@@ -12,7 +13,7 @@ def make_role(title: str):
 
 
 async def compare_and_update_maintainers(
-    repo_id: str, repo_url: str, maintainers: list[dict], change_date: datetime
+    repo_id: str, repo_url: str, maintainers: list[MaintainerInfoItem], change_date: datetime
 ):
     current_maintainers = await query(
         """
@@ -104,11 +105,12 @@ async def compare_and_update_maintainers(
             )
 
 
-async def process_maintainers(repo_id: str, repo_url: str, maintainers: list[dict]):
-    async def process_maintainer(maintainer):
-        role = make_role(maintainer["title"])
+async def process_maintainers(repo_id: str, repo_url: str, maintainers: list[MaintainerInfoItem]):
+    async def process_maintainer(maintainer: MaintainerInfoItem):
+        role = make_role(maintainer.title)
+        normalized_title = maintainer.normalized_title
         # Find the identity in the database
-        github_username = maintainer["github_username"]
+        github_username = maintainer.github_username
         if github_username == "unknown":
             return
         identity = await query(
@@ -138,7 +140,7 @@ async def process_maintainers(repo_id: str, repo_url: str, maintainers: list[dic
 
     semaphore = asyncio.Semaphore(3)
 
-    async def process_with_semaphore(maintainer):
+    async def process_with_semaphore(maintainer: MaintainerInfoItem):
         async with semaphore:
             await process_maintainer(maintainer)
 

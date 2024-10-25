@@ -81,13 +81,9 @@ async def parse_not_parsed():
                     logger.info(f"Processing repo: github.com/{owner}/{repo_name}")
                     result = scrape(owner, repo_name)
 
-                    if (
-                        isinstance(result, dict)
-                        and "maintainer_file" in result
-                        and "maintainer_info" in result
-                    ):
-                        maintainer_file = result["maintainer_file"]
-                        maintainer_info = result["maintainer_info"]
+                    if result.maintainer_file is not None and result.maintainer_info is not None:
+                        maintainer_file = result.maintainer_file
+                        maintainer_info = result.maintainer_info
 
                         await process_maintainers(repo_id, url, maintainer_info)
 
@@ -104,7 +100,7 @@ async def parse_not_parsed():
                         logger.info(f"Successfully processed maintainers for {owner}/{repo_name}")
 
                         if GET_COST:
-                            update_cost_csv(url, result["total_cost"])
+                            update_cost_csv(url, result.total_cost)
                     else:
                         await execute(
                             """
@@ -115,11 +111,11 @@ async def parse_not_parsed():
                             (datetime.now(), repo_id),
                         )
                         logger.warning(
-                            f"Failed to scrape maintainers for {owner}/{repo_name}: {result.get('reason', 'Unknown error')}"
+                            f"Failed to scrape maintainers for {owner}/{repo_name}: {result.reason or 'Unknown error'}"
                         )
 
-                        if GET_COST and "total_cost" in result:
-                            update_cost_csv(url, result["total_cost"])
+                        if GET_COST and result.total_cost is not None:
+                            update_cost_csv(url, result.total_cost)
                 else:
                     logger.error(f"Invalid GitHub URL format: {url}")
                     write_failed_repo(url, "", "", "Invalid GitHub URL format")
@@ -162,13 +158,9 @@ async def parse_already_parsed():
                 )
 
                 if result is not None:
-                    if (
-                        isinstance(result, dict)
-                        and "content" in result
-                        and "last_modified" in result
-                    ):
-                        maintainer_info = result["content"]
-                        last_modified = result["last_modified"]
+                    if result.output is not None and result.last_modified is not None:
+                        maintainer_info = result.output.output.info
+                        last_modified = result.last_modified
 
                         await compare_and_update_maintainers(
                             repo_id, url, maintainer_info, last_modified
@@ -187,7 +179,7 @@ async def parse_already_parsed():
                         logger.info(f"Successfully processed maintainers for {owner}/{repo_name}")
 
                         if GET_COST:
-                            update_cost_csv(url, result["total_cost"])
+                            update_cost_csv(url, result.output.cost)
                     else:
                         await execute(
                             """
@@ -197,12 +189,10 @@ async def parse_already_parsed():
                             """,
                             (datetime.now(), repo_id),
                         )
-                        logger.warning(
-                            f"Failed to re-scrape maintainers for {owner}/{repo_name}: {result.get('reason', 'Unknown error')}"
-                        )
+                        logger.warning(f"Failed to re-scrape maintainers for {owner}/{repo_name}")
 
-                        if GET_COST and "total_cost" in result:
-                            update_cost_csv(url, result["total_cost"])
+                        if GET_COST and result.output.cost is not None:
+                            update_cost_csv(url, result.output.cost)
                 else:
                     logger.info(f"No updates found for {owner}/{repo_name}")
             except Exception as error:
@@ -247,13 +237,9 @@ async def reidentify_repos_with_no_maintainer_file():
                 logger.info(f"Processing repo: github.com/{owner}/{repo_name}")
                 result = scrape(owner, repo_name)
 
-                if (
-                    isinstance(result, dict)
-                    and "maintainer_file" in result
-                    and "maintainer_info" in result
-                ):
-                    maintainer_file = result["maintainer_file"]
-                    maintainer_info = result["maintainer_info"]
+                if result.maintainer_info is not None and result.maintainer_file is not None:
+                    maintainer_file = result.maintainer_file
+                    maintainer_info = result.maintainer_info
 
                     await process_maintainers(repo_id, url, maintainer_info)
 
@@ -270,7 +256,7 @@ async def reidentify_repos_with_no_maintainer_file():
                     logger.info(f"Successfully processed maintainers for {owner}/{repo_name}")
 
                     if GET_COST:
-                        update_cost_csv(url, result["total_cost"])
+                        update_cost_csv(url, result.total_cost)
                 else:
                     await execute(
                         """
@@ -281,11 +267,11 @@ async def reidentify_repos_with_no_maintainer_file():
                         (datetime.now(), repo_id),
                     )
                     logger.warning(
-                        f"Failed to scrape maintainers for {owner}/{repo_name}: {result.get('reason', 'Unknown error')}"
+                        f"Failed to scrape maintainers for {owner}/{repo_name}: {result.reason or 'Unknown error'}"
                     )
 
-                    if GET_COST and "total_cost" in result:
-                        update_cost_csv(url, result["total_cost"])
+                    if GET_COST and result.total_cost is not None:
+                        update_cost_csv(url, result.total_cost)
             else:
                 logger.error(f"Invalid GitHub URL format: {url}")
                 write_failed_repo(url, "", "", "Invalid GitHub URL format")
