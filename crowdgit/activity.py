@@ -89,10 +89,10 @@ def clean_up_username(name: str):
 # pylint: disable=too-many-branches
 def prepare_crowd_activities(
     remote: str,
-    commits: List[Dict] = None,
+    commits: List[Dict] | None = None,
     verbose: bool = False,
-    since: str = None,
-    until: str = None,
+    since: str | None = None,
+    until: str | None = None,
 ) -> List[Dict]:
     def create_activity(
         commit: Dict,
