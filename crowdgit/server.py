@@ -20,6 +20,7 @@ auth_scheme = HTTPBearer()
 
 DEFAULT_REPOS_DIR = os.path.join("..", "..", LOCAL_DIR, "repos")
 BAD_COMMITS_DIR = os.path.join("..", "..", LOCAL_DIR, "bad_commits")
+RUNNING_DIR = os.path.join("..", "..", LOCAL_DIR, "running")
 REPOS_DIR = os.environ.get("REPOS_DIR", DEFAULT_REPOS_DIR)
 
 
@@ -170,6 +171,15 @@ async def reonboard_remote(
 
     if not os.path.exists(repo_dir):
         raise HTTPException(status_code=404, detail="Repository not found")
+
+    repo_name = get_repo_name(remote)
+    semaphore = os.path.join(RUNNING_DIR, repo_name)
+
+    if os.path.exists(semaphore):
+        with open(semaphore, "r", encoding="utf-8") as fin:
+            timestamp = fin.read().strip()
+        logging.info("Skipping %s, already running since %s", repo_name, timestamp)
+        return {"message": f"Repository {repo_name} is already being processed since {timestamp}"}
 
     bg_tasks.add_task(reonboard_repo, remote)
     return {"message": "Reonboarding started"}
