@@ -1,12 +1,17 @@
 from fastapi import FastAPI
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.background import BackgroundTasks
 import os
 from crowdgit import LOCAL_DIR
 import asyncio
 from dotenv import load_dotenv
 from crowdgit.repo import get_repo_name
 import logging
+import secrets
+from crowdgit.ingest import Queue
+from crowdgit.get_remotes import get_remotes
+import shutil
 
 load_dotenv()
 
@@ -14,12 +19,58 @@ app = FastAPI()
 auth_scheme = HTTPBearer()
 
 DEFAULT_REPOS_DIR = os.path.join("..", "..", LOCAL_DIR, "repos")
+BAD_COMMITS_DIR = os.path.join("..", "..", LOCAL_DIR, "bad_commits")
 REPOS_DIR = os.environ.get("REPOS_DIR", DEFAULT_REPOS_DIR)
+
+
+def get_local_repo(remote: str, repos_dir: str) -> str:
+    return os.path.join(repos_dir, get_repo_name(remote))
+
+
+def reonboard_repo(remote: str):
+    """Reonboard a repository by deleting and re-ingesting it.
+
+    :param remote: The remote URL of the repository to reonboard
+    """
+    queue = Queue()
+    repo_path = get_local_repo(remote, REPOS_DIR)
+
+    remotes = get_remotes(
+        os.environ["CROWD_HOST"],
+        os.environ["TENANT_ID"],
+        os.environ["CROWD_API_KEY"],
+    )
+
+    # Find matching remote in tenant's remotes
+    for segment_id in remotes:
+        integration_id = remotes[segment_id]["integrationId"]
+        for tenant_remote in remotes[segment_id]["remotes"]:
+            if remote.rstrip(".git") == tenant_remote.rstrip(".git"):
+                repo_path = get_local_repo(remote, REPOS_DIR)
+                if os.path.exists(repo_path):
+                    shutil.rmtree(repo_path)
+                    logging.info("Deleted repo %s", remote)
+                else:
+                    logging.info("Repo %s not found", remote)
+
+                bad_commits_path = get_local_repo(remote, BAD_COMMITS_DIR)
+                if os.path.exists(bad_commits_path):
+                    shutil.rmtree(bad_commits_path)
+                    logging.info("Deleted bad commits for repo %s", remote)
+                else:
+                    logging.info("Bad commits for repo %s not found", remote)
+
+                logging.info("Ingesting %s for segment %s", remote, segment_id)
+                queue.ingest_remote(
+                    segment_id=segment_id,
+                    integration_id=integration_id,
+                    remote=remote,
+                )
 
 
 @app.get("/")
 async def root(token: HTTPAuthorizationCredentials = Depends(auth_scheme)):
-    if token.credentials != os.environ["AUTH_TOKEN"]:
+    if not secrets.compare_digest(token.credentials, os.environ["AUTH_TOKEN"]):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect bearer token",
@@ -30,15 +81,14 @@ async def root(token: HTTPAuthorizationCredentials = Depends(auth_scheme)):
 
 @app.get("/stats")
 async def repo_stats(remote: str, token: HTTPAuthorizationCredentials = Depends(auth_scheme)):
-    if token.credentials != os.environ["AUTH_TOKEN"]:
+    if not secrets.compare_digest(token.credentials, os.environ["AUTH_TOKEN"]):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect bearer token",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    dir_name = get_repo_name(remote)
-    repo_dir = os.path.join(REPOS_DIR, dir_name)
+    repo_dir = get_local_repo(remote, REPOS_DIR)
 
     if not os.path.exists(repo_dir):
         raise HTTPException(status_code=404, detail="Repository not found")
@@ -61,15 +111,14 @@ async def repo_stats(remote: str, token: HTTPAuthorizationCredentials = Depends(
 async def get_user_name(
     email: str, remote: str, token: HTTPAuthorizationCredentials = Depends(auth_scheme)
 ):
-    if token.credentials != os.environ["AUTH_TOKEN"]:
+    if not secrets.compare_digest(token.credentials, os.environ["AUTH_TOKEN"]):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect bearer token",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    dir_name = get_repo_name(remote)
-    repo_dir = os.path.join(REPOS_DIR, dir_name)
+    repo_dir = get_local_repo(remote, REPOS_DIR)
 
     if not os.path.exists(repo_dir):
         raise HTTPException(status_code=404, detail="Repository not found")
@@ -102,3 +151,25 @@ async def get_user_name(
         return {"email": email, "name": name}
 
     raise HTTPException(status_code=404, detail="User not found")
+
+
+@app.get("/reonboard")
+async def reonboard_remote(
+    remote: str,
+    bg_tasks: BackgroundTasks,
+    token: HTTPAuthorizationCredentials = Depends(auth_scheme),
+):
+    if not secrets.compare_digest(token.credentials, os.environ["AUTH_TOKEN"]):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect bearer token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    repo_dir = get_local_repo(remote, REPOS_DIR)
+
+    if not os.path.exists(repo_dir):
+        raise HTTPException(status_code=404, detail="Repository not found")
+
+    bg_tasks.add_task(reonboard_repo, remote)
+    return {"message": "Reonboarding started"}
