@@ -50,9 +50,9 @@ touch tmp-cron
 
 # Check if the user has a crontab
 if crontab -l >/dev/null 2>&1; then
-  # If the cron job already exists, skip adding
-  if crontab -l | grep -q "/home/ubuntu/venv/cgit/bin/crowd-git-ingest"; then
-    echo "Cron job already exists. Nothing to do."
+  # If the cron jobs already exist, skip adding
+  if crontab -l | grep -q "/home/ubuntu/venv/cgit/bin/crowd-git-ingest" && crontab -l | grep -q "/home/ubuntu/venv/cgit/bin/crowd-git-maintainers"; then
+    echo "Cron jobs already exist. Nothing to do."
     rm tmp-cron
     exit 0
   fi
@@ -61,8 +61,9 @@ if crontab -l >/dev/null 2>&1; then
   crontab -l >tmp-cron
 fi
 
-# Append the new cron job entry
+# Append the new cron job entries
 echo "* */5 * * * /home/ubuntu/venv/cgit/bin/crowd-git-ingest >> /data/repos/log/cron.log 2>&1" >>tmp-cron
+echo "0 0 * * * /home/ubuntu/venv/cgit/bin/crowd-git-maintainers >> /data/repos/log/maintainers.log 2>&1" >>tmp-cron
 
 # Install the new crontab
 crontab tmp-cron
@@ -70,4 +71,4 @@ crontab tmp-cron
 # Remove the temporary file
 rm tmp-cron
 
-echo "Cron job added successfully."
+echo "Cron jobs added successfully."
