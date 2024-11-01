@@ -136,7 +136,7 @@ async def process_maintainers(repo_id: str, repo_url: str, maintainers: list[Mai
                 INSERT INTO "maintainersInternal" 
                 (role, "originalRole", "repoUrl", "repoId", "identityId")
                 VALUES ($1, $2, $3, $4, $5)
-                ON CONFLICT ("repoId", "identityId") DO UPDATE
+                ON CONFLICT ("repoId", "identityId", "endDate", "startDate") DO UPDATE
                 SET role = EXCLUDED.role, "originalRole" = EXCLUDED."originalRole", "updatedAt" = NOW()
             """,
                 (role, original_role, repo_url, repo_id, identity_id),
