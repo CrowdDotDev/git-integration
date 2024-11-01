@@ -13,6 +13,9 @@ from datetime import datetime
 import subprocess
 from pydantic import BaseModel
 from typing import Optional, List, Literal
+from threading import Lock
+
+lock = Lock()
 
 
 logger = get_logger(__name__)
@@ -144,21 +147,22 @@ def find_maintainer_file(owner: str, repo: str):
 
 
 def update_stats(file_name, owner, repo):
-    stats_file = os.path.join(LOCAL_DIR, "ai-found-file-stats.json")
-    if os.path.exists(stats_file):
-        with open(stats_file, "r") as f:
-            stats = json.load(f)
-    else:
-        stats = {}
+    with lock:
+        stats_file = os.path.join(LOCAL_DIR, "ai-found-file-stats.json")
+        if os.path.exists(stats_file):
+            with open(stats_file, "r") as f:
+                stats = json.load(f)
+        else:
+            stats = {}
 
-    if file_name not in stats:
-        stats[file_name] = []
-    repo_identifier = f"{owner}/{repo}"
-    if repo_identifier not in stats[file_name]:
-        stats[file_name].append(repo_identifier)
+        if file_name not in stats:
+            stats[file_name] = []
+        repo_identifier = f"{owner}/{repo}"
+        if repo_identifier not in stats[file_name]:
+            stats[file_name].append(repo_identifier)
 
-    with open(stats_file, "w") as f:
-        json.dump(stats, f, indent=2)
+        with open(stats_file, "w") as f:
+            json.dump(stats, f, indent=2)
 
 
 def find_maintainer_file_with_ai(file_names, owner, repo):

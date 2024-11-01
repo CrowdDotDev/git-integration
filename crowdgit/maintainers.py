@@ -12,41 +12,49 @@ import asyncio
 from crowdgit.logger import get_logger
 from crowdgit import LOCAL_DIR
 from datetime import datetime
+from threading import Lock
 
 logger = get_logger(__name__)
 
 GET_COST = True
 
 
-def update_cost_csv(url, total_cost):
-    csv_file = LOCAL_DIR + "/repo_costs.csv"
-    file_exists = os.path.isfile(csv_file)
+cost_csv_lock = Lock()
+failed_repos_lock = Lock()
 
-    with open(csv_file, "a", newline="") as csvfile:
-        writer = csv.writer(csvfile)
-        if not file_exists:
-            writer.writerow(["Repo URL", "Total Cost"])
-        writer.writerow([url, total_cost])
+
+def update_cost_csv(url, total_cost):
+    with cost_csv_lock:
+        csv_file = LOCAL_DIR + "/repo_costs.csv"
+        file_exists = os.path.isfile(csv_file)
+
+        with open(csv_file, "a", newline="") as csvfile:
+            writer = csv.writer(csvfile)
+            if not file_exists:
+                writer.writerow(["Repo URL", "Total Cost"])
+            writer.writerow([url, total_cost])
 
 
 def write_failed_repo(url, owner, repo_name, error):
-    csv_file = LOCAL_DIR + "/failed_repos.csv"
-    file_exists = os.path.isfile(csv_file)
+    with failed_repos_lock:
+        csv_file = LOCAL_DIR + "/failed_repos.csv"
+        file_exists = os.path.isfile(csv_file)
 
-    with open(csv_file, "a", newline="") as csvfile:
-        writer = csv.writer(csvfile)
-        if not file_exists:
-            writer.writerow(["repo_url", "owner", "repo", "error"])
-        writer.writerow([url, owner, repo_name, str(error)])
+        with open(csv_file, "a", newline="") as csvfile:
+            writer = csv.writer(csvfile)
+            if not file_exists:
+                writer.writerow(["repo_url", "owner", "repo", "error"])
+            writer.writerow([url, owner, repo_name, str(error)])
 
 
 def is_repo_failed(url):
-    if not os.path.isfile(LOCAL_DIR + "/failed_repos.csv"):
-        return False
+    with failed_repos_lock:
+        if not os.path.isfile(LOCAL_DIR + "/failed_repos.csv"):
+            return False
 
-    with open(LOCAL_DIR + "/failed_repos.csv", "r") as csvfile:
-        reader = csv.DictReader(csvfile)
-        return any(row["repo_url"] == url for row in reader)
+        with open(LOCAL_DIR + "/failed_repos.csv", "r") as csvfile:
+            reader = csv.DictReader(csvfile)
+            return any(row["repo_url"] == url for row in reader)
 
 
 async def parse_not_parsed():
