@@ -62,7 +62,7 @@ if crontab -l >/dev/null 2>&1; then
 fi
 
 # Append the new cron job entry
-echo "0 */5 * * * { start=\$(date +%s); /home/ubuntu/venv/cgit/bin/crowd-git-ingest; end=\$(date +%s); echo \"Duration: \$((end-start)) seconds\" ; } >> /data/repos/log/cron.log 2>&1" >>tmp-cron
+echo "* * * * * /home/ubuntu/venv/cgit/bin/crowd-git-ingest >> /data/repos/log/cron.log 2>&1" >>tmp-cron
 
 # Install the new crontab
 crontab tmp-cron
