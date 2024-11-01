@@ -3,6 +3,7 @@ import boto3
 from crowdgit.logger import get_logger
 from pydantic import BaseModel, ValidationError
 from typing import Generic, TypeVar
+from threading import Semaphore
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -13,6 +14,7 @@ class BedrockResponse(BaseModel, Generic[T]):
 
 
 logger = get_logger(__name__)
+semaphore = Semaphore(2)
 
 
 def invoke_bedrock(
@@ -62,9 +64,10 @@ def invoke_bedrock(
         modelId = "anthropic.claude-3-5-sonnet-20240620-v1:0"
         accept = "application/json"
         contentType = "application/json"
-        response = bedrock_client.invoke_model(
-            body=body, modelId=modelId, accept=accept, contentType=contentType
-        )
+        with semaphore:
+            response = bedrock_client.invoke_model(
+                body=body, modelId=modelId, accept=accept, contentType=contentType
+            )
         try:
             response_body = json.loads(response.get("body").read())
             output = json.loads(response_body["content"][0]["text"].replace('"""', ""))
