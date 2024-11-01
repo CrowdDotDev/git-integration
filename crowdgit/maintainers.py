@@ -79,7 +79,7 @@ async def parse_not_parsed():
                         raise Exception("envoy later")
 
                     logger.info(f"Processing repo: github.com/{owner}/{repo_name}")
-                    result = scrape(owner, repo_name)
+                    result = await asyncio.to_thread(scrape, owner, repo_name)
 
                     if result.maintainer_file is not None and result.maintainer_info is not None:
                         maintainer_file = result.maintainer_file
@@ -153,8 +153,12 @@ async def parse_already_parsed():
 
             logger.info(f"Processing repo: github.com/{owner}/{repo_name}")
             try:
-                result = check_for_updates(
-                    repo["maintainerFile"], owner, repo_name, repo["lastMaintainerRunAt"]
+                result = await asyncio.to_thread(
+                    check_for_updates,
+                    repo["maintainerFile"],
+                    owner,
+                    repo_name,
+                    repo["lastMaintainerRunAt"],
                 )
 
                 if result is not None:
@@ -235,7 +239,7 @@ async def reidentify_repos_with_no_maintainer_file():
                     raise Exception("envoy later")
 
                 logger.info(f"Processing repo: github.com/{owner}/{repo_name}")
-                result = scrape(owner, repo_name)
+                result = await asyncio.to_thread(scrape, owner, repo_name)
 
                 if result.maintainer_info is not None and result.maintainer_file is not None:
                     maintainer_file = result.maintainer_file
