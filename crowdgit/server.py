@@ -12,6 +12,7 @@ import secrets
 from crowdgit.ingest import Queue
 from crowdgit.get_remotes import get_remotes
 import shutil
+from threading import Semaphore
 
 load_dotenv()
 
@@ -24,6 +25,8 @@ RUNNING_DIR = os.path.join("..", "..", LOCAL_DIR, "running")
 REPOS_DIR = os.environ.get("REPOS_DIR", DEFAULT_REPOS_DIR)
 
 
+semaphore = Semaphore(3)
+
 def get_local_repo(remote: str, repos_dir: str) -> str:
     return os.path.join(repos_dir, get_repo_name(remote))
 
@@ -33,40 +36,41 @@ def reonboard_repo(remote: str):
 
     :param remote: The remote URL of the repository to reonboard
     """
-    queue = Queue()
-    repo_path = get_local_repo(remote, REPOS_DIR)
+    with semaphore:
+        queue = Queue()
+        repo_path = get_local_repo(remote, REPOS_DIR)
 
-    remotes = get_remotes(
-        os.environ["CROWD_HOST"],
-        os.environ["TENANT_ID"],
-        os.environ["CROWD_API_KEY"],
-    )
+        remotes = get_remotes(
+            os.environ["CROWD_HOST"],
+            os.environ["TENANT_ID"],
+            os.environ["CROWD_API_KEY"],
+        )
 
-    # Find matching remote in tenant's remotes
-    for segment_id in remotes:
-        integration_id = remotes[segment_id]["integrationId"]
-        for tenant_remote in remotes[segment_id]["remotes"]:
-            if remote.rstrip(".git") == tenant_remote.rstrip(".git"):
-                repo_path = get_local_repo(remote, REPOS_DIR)
-                if os.path.exists(repo_path):
-                    shutil.rmtree(repo_path)
-                    logging.info("Deleted repo %s", remote)
-                else:
-                    logging.info("Repo %s not found", remote)
+        # Find matching remote in tenant's remotes
+        for segment_id in remotes:
+            integration_id = remotes[segment_id]["integrationId"]
+            for tenant_remote in remotes[segment_id]["remotes"]:
+                if remote.rstrip(".git") == tenant_remote.rstrip(".git"):
+                    repo_path = get_local_repo(remote, REPOS_DIR)
+                    if os.path.exists(repo_path):
+                        shutil.rmtree(repo_path)
+                        logging.info("Deleted repo %s", remote)
+                    else:
+                        logging.info("Repo %s not found", remote)
 
-                bad_commits_path = get_local_repo(remote, BAD_COMMITS_DIR)
-                if os.path.exists(bad_commits_path):
-                    shutil.rmtree(bad_commits_path)
-                    logging.info("Deleted bad commits for repo %s", remote)
-                else:
-                    logging.info("Bad commits for repo %s not found", remote)
+                    bad_commits_path = get_local_repo(remote, BAD_COMMITS_DIR)
+                    if os.path.exists(bad_commits_path):
+                        shutil.rmtree(bad_commits_path)
+                        logging.info("Deleted bad commits for repo %s", remote)
+                    else:
+                        logging.info("Bad commits for repo %s not found", remote)
 
-                logging.info("Ingesting %s for segment %s", remote, segment_id)
-                queue.ingest_remote(
-                    segment_id=segment_id,
-                    integration_id=integration_id,
-                    remote=remote,
-                )
+                    logging.info("Ingesting %s for segment %s", remote, segment_id)
+                    queue.ingest_remote(
+                        segment_id=segment_id,
+                        integration_id=integration_id,
+                        remote=remote,
+                    )
 
 
 @app.get("/")
