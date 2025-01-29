@@ -110,7 +110,7 @@ The instances are easily accessible through SSH. Contact [Joan](mailto:joan@crow
 To deploy new versions, ssh into the instance, check out the `git-integration` directory, and pull. If you need to update environment variables, once you are inside the `git-integration` directory do:
 
 - `./install.sh` if you are in staging
-- `./install.sh` prod if you are in production
+- `./install.sh prod` if you are in production
 
 ## Scripts
 
