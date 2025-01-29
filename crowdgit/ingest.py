@@ -256,7 +256,6 @@ def main():
 
     remotes = get_remotes(
         os.environ["CROWD_HOST"],
-        os.environ["TENANT_ID"],
         os.environ["CROWD_API_KEY"],
     )
 

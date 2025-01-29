@@ -26,9 +26,9 @@ from crowdgit.logger import get_logger
 logger = get_logger(__name__)
 
 
-def get_remotes(host, tenant_id, api_key):
+def get_remotes(host, api_key):
     protocol = "http" if "localhost" in host else "https"
-    url = f"{protocol}://{host}/api/tenant/{tenant_id}/git"
+    url = f"{protocol}://{host}/api/git"
     payload = {}
     headers = {"Authorization": f"Bearer {api_key}"}
 
