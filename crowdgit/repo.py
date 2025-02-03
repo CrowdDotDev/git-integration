@@ -289,6 +289,13 @@ def get_commits(
         author_datetime = commit_lines[1]
         author_name = commit_lines[2]
         author_email = commit_lines[3]
+        
+        # Check for empty author email
+        if author_email is None or author_email.strip() == "":
+            bad_commits += 1
+            store_bad_commits(commit_text, repo_path)
+            continue
+        
         commit_datetime = commit_lines[4]
         commit_datetime_obj = datetime.datetime.strptime(commit_datetime, "%Y-%m-%dT%H:%M:%S%z")
         if commit_datetime_obj > datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(
