@@ -157,6 +157,46 @@ async def get_user_name(
     raise HTTPException(status_code=404, detail="User not found")
 
 
+@app.get("/commits-in-range")
+async def get_commits_in_range(
+    remote: str,
+    since: str,
+    until: str,
+    token: HTTPAuthorizationCredentials = Depends(auth_scheme)
+):
+    if not secrets.compare_digest(token.credentials, os.environ["AUTH_TOKEN"]):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect bearer token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    repo_dir = get_local_repo(remote, REPOS_DIR)
+
+    if not os.path.exists(repo_dir):
+        raise HTTPException(status_code=404, detail="Repository not found")
+
+    # Use git rev-list to count commits between dates
+    cmd = f"""git -C {repo_dir} rev-list --count HEAD --since="{since}" --until="{until}" """
+    
+    process = await asyncio.create_subprocess_shell(
+        cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+    )
+    stdout, stderr = await process.communicate()
+
+    if process.returncode != 0:
+        error_message = stderr.decode().strip()
+        logging.error(f"Error while executing command: {cmd}. Error: {error_message}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+    return {
+        "remote": remote,
+        "since": since,
+        "until": until,
+        "num_commits": int(stdout)
+    }
+
+
 @app.get("/reonboard")
 async def reonboard_remote(
     remote: str,
