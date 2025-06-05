@@ -21,5 +21,5 @@ CREATE TABLE IF NOT EXISTS language_stats (
     count INTEGER NOT NULL,
     weighted_complexity INTEGER NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT unique_project_language UNIQUE (repo_url, name)
+    CONSTRAINT unique_project_language UNIQUE (repo_url, language_name)
 );
