@@ -66,7 +66,8 @@ async def compare_and_update_maintainers(
                 await execute(
                     """
                     UPDATE "maintainersInternal"
-                    SET "endDate" = $1
+                    SET "endDate" = $1,
+                    "updatedAt" = NOW()
                     WHERE "repoId" = $2 AND "identityId" = $3 AND role = $4
                     """,
                     (
@@ -98,7 +99,8 @@ async def compare_and_update_maintainers(
             await execute(
                 """
                 UPDATE "maintainersInternal"
-                SET "endDate" = $1
+                SET "endDate" = $1,
+                "updatedAt" = NOW()
                 WHERE "repoId" = $2 AND "identityId" = $3 AND role = $4
                 """,
                 (
