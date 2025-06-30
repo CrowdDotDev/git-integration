@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
@@ -52,7 +51,15 @@ func main() {
 			continue
 		}
 
-		report, err := getSCCReport(config.SCCPath, repoDir)
+		fileSizes, err := getFileSizes(repoDir)
+		if err != nil {
+			log.Printf("Error getting file sizes for '%s': %v", repoDir, err)
+			continue
+		}
+
+		largeByteCount := calculateLargeByteThreshold(fileSizes)
+
+		report, err := getSCCReport(config.SCCPath, repoDir, largeByteCount)
 		if err != nil {
 			log.Printf("Error processing repository '%s': %v", repoDir, err)
 			continue
@@ -76,40 +83,9 @@ func main() {
 	}
 }
 
-// findRepositoriesDirectories returns all immediate subdirectories within the given path, which contain a .git directory.
-// This creates a list (repoDirs) with all the repositories into memory.
-// At the time of writing, we have a little over 14K directories.
-// It doesn't seem to be a problem for now, but we should keep this in mind in the future with more repositories.
-func findRepositoriesDirectories(dirPath string) ([]string, error) {
-	var repoDirs []string
-
-	entries, err := os.ReadDir(dirPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read directory '%s': %w", dirPath, err)
-	}
-
-	for _, entry := range entries {
-		if entry.IsDir() {
-			subdirPath := filepath.Join(dirPath, entry.Name())
-			gitDirPath := filepath.Join(subdirPath, ".git")
-			if stat, err := os.Stat(gitDirPath); err == nil && stat.IsDir() {
-				repoDirs = append(repoDirs, subdirPath)
-			} else {
-				log.Printf("Skipping directory '%s', it does not contain a .git directory.", subdirPath)
-			}
-		}
-	}
-
-	if len(repoDirs) == 0 {
-		log.Printf("No git repositories found in %s", dirPath)
-	}
-
-	return repoDirs, nil
-}
-
 // getSCCReport analyzes a directory with scc and returns a report containing the estimated cost and language statistics.
-func getSCCReport(sccPath, dirPath string) (SCCReport, error) {
-	cost, err := getCost(sccPath, dirPath)
+func getSCCReport(sccPath, dirPath string, largeByteCount int64) (SCCReport, error) {
+	cost, err := getCost(sccPath, dirPath, largeByteCount)
 	if err != nil {
 		return SCCReport{}, fmt.Errorf("error getting SCC report for '%s': %v\"", err)
 	}
@@ -121,7 +97,7 @@ func getSCCReport(sccPath, dirPath string) (SCCReport, error) {
 
 	projectPath := filepath.Base(dirPath)
 
-	langStats, err := getLanguageStats(sccPath, dirPath)
+	langStats, err := getLanguageStats(sccPath, dirPath, largeByteCount)
 	if err != nil {
 		return SCCReport{}, fmt.Errorf("error getting language stats for '%s': %v", dirPath, err)
 	}
@@ -165,8 +141,8 @@ func getGitRepositoryURL(dirPath string) (string, error) {
 }
 
 // getCost runs the scc command and parses the output to get the estimated cost.
-func getCost(sccPathPath, repoPath string) (float64, error) {
-	output, err := runSCC(sccPathPath, "--format=short", repoPath)
+func getCost(sccPathPath, repoPath string, largeByteCount int64) (float64, error) {
+	output, err := runSCC(sccPathPath, largeByteCount, "--format=short", repoPath)
 	if err != nil {
 		return 0, fmt.Errorf("failed to run scc command: %w", err)
 	}
@@ -180,8 +156,8 @@ func getCost(sccPathPath, repoPath string) (float64, error) {
 }
 
 // getLanguageStats runs the scc command and parses the output to get language statistics.
-func getLanguageStats(sccPathPath, repoPath string) ([]LanguageStats, error) {
-	output, err := runSCC(sccPathPath, "--format=json", repoPath)
+func getLanguageStats(sccPathPath, repoPath string, largeByteCount int64) ([]LanguageStats, error) {
+	output, err := runSCC(sccPathPath, largeByteCount, "--format=json", repoPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to run scc command: %w", err)
 	}
@@ -195,8 +171,13 @@ func getLanguageStats(sccPathPath, repoPath string) ([]LanguageStats, error) {
 }
 
 // runSCC executes the scc command with the given arguments and returns the output.
-func runSCC(sccPathPath string, args ...string) (string, error) {
-	cmd := exec.Command(sccPathPath, args...)
+func runSCC(sccPathPath string, largeByteCount int64, args ...string) (string, error) {
+	allArgs := append([]string{"--no-large"}, args...)
+	if largeByteCount > 0 {
+		allArgs = append(allArgs, fmt.Sprintf("--large-byte-count=%d", largeByteCount))
+	}
+
+	cmd := exec.Command(sccPathPath, allArgs...)
 	output, err := cmd.Output()
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
