@@ -1,6 +1,6 @@
 from urllib.parse import urlparse
 from crowdgit.cm_maintainers_data.scraper import scrape, check_for_updates
-from crowdgit.cm_maintainers_data.cm_database import query, execute
+from crowdgit.cm_maintainers_data.cm_database import close_db_connections, query, execute
 import os
 from datetime import datetime
 from crowdgit.cm_maintainers_data.process_maintainers import (
@@ -298,6 +298,7 @@ async def run():
         tg.create_task(parse_not_parsed())
         tg.create_task(parse_already_parsed())
         tg.create_task(reidentify_repos_with_no_maintainer_file())
+    await close_db_connections()
 
 
 def main():

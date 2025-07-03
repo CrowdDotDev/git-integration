@@ -1,9 +1,11 @@
+import asyncio
 from git import Repo, Git
 from pprint import pprint as pp
 import os
 import requests
 import json
 from tqdm import tqdm
+from crowdgit.cm_maintainers_data.cm_database import close_db_connections
 from crowdgit.ingest import Queue
 from dotenv import load_dotenv
 import time
@@ -40,7 +42,7 @@ def send_api_call(endpoint, body=None, method="POST"):
         return False
 
 
-def get_commit_info(repo, segment_id, integration_id, remote, commit_id, repo_path="."):
+async def get_commit_info(repo, segment_id, integration_id, remote, commit_id, repo_path="."):
     try:
         commit = repo.commit(commit_id)
     except Exception as e:
@@ -114,10 +116,10 @@ def get_commit_info(repo, segment_id, integration_id, remote, commit_id, repo_pa
 
     queue = Queue()
 
-    return queue.send_messages(segment_id, integration_id, [activity])
+    return await queue.send_messages(segment_id, integration_id, [activity])
 
 
-def parse_commit_file(commit_file_path, repo_path):
+async def parse_commit_file(commit_file_path, repo_path):
     with open(commit_file_path, "r") as f:
         commit_data = f.read()
 
@@ -147,7 +149,7 @@ def parse_commit_file(commit_file_path, repo_path):
     bad_commits = []
     for commit in tqdm(commits):
         commit_id = commit.split("\n")[0]
-        commit_info = get_commit_info(
+        commit_info = await get_commit_info(
             repo, segment_id, integration_id, remote, commit_id, repo_path
         )
         if not commit_info:
@@ -155,14 +157,14 @@ def parse_commit_file(commit_file_path, repo_path):
     return bad_commits
 
 
-def main():
+async def process_bad_commits():
     import glob
     from crowdgit import LOCAL_DIR
 
     commit_files = glob.glob(f"{LOCAL_DIR}/bad-commits/[!DONE]*.txt")
     for commit_file_path in commit_files:
         repo_path = f"{LOCAL_DIR}/repos/" + os.path.basename(commit_file_path).replace(".txt", "")
-        parse_commit_file(commit_file_path, repo_path)
+        await parse_commit_file(commit_file_path, repo_path)
         os.rename(
             commit_file_path,
             f"{LOCAL_DIR}/bad-commits/DONE_"
@@ -170,6 +172,16 @@ def main():
             + "_"
             + os.path.basename(commit_file_path),
         )
+
+
+async def run():
+    async with asyncio.TaskGroup() as tg:
+        tg.create_task(process_bad_commits)
+    await close_db_connections()
+
+
+def main():
+    asyncio.run(run())
 
 
 if __name__ == "__main__":

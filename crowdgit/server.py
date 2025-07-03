@@ -27,11 +27,12 @@ REPOS_DIR = os.environ.get("REPOS_DIR", DEFAULT_REPOS_DIR)
 
 semaphore = Semaphore(3)
 
+
 def get_local_repo(remote: str, repos_dir: str) -> str:
     return os.path.join(repos_dir, get_repo_name(remote))
 
 
-def reonboard_repo(remote: str, since: str = None, until: str = None):
+async def reonboard_repo(remote: str, since: str = None, until: str = None):
     """Reonboard a repository by deleting and re-ingesting it.
 
     :param remote: The remote URL of the repository to reonboard
@@ -65,7 +66,7 @@ def reonboard_repo(remote: str, since: str = None, until: str = None):
                         logging.info("Bad commits for repo %s not found", remote)
 
                     logging.info("Ingesting %s for segment %s", remote, segment_id)
-                    queue.ingest_remote(
+                    await queue.ingest_remote(
                         segment_id=segment_id,
                         integration_id=integration_id,
                         remote=remote,
@@ -161,10 +162,7 @@ async def get_user_name(
 
 @app.get("/commits-in-range")
 async def get_commits_in_range(
-    remote: str,
-    since: str,
-    until: str,
-    token: HTTPAuthorizationCredentials = Depends(auth_scheme)
+    remote: str, since: str, until: str, token: HTTPAuthorizationCredentials = Depends(auth_scheme)
 ):
     if not secrets.compare_digest(token.credentials, os.environ["AUTH_TOKEN"]):
         raise HTTPException(
@@ -180,7 +178,7 @@ async def get_commits_in_range(
 
     # Use git rev-list to count commits between dates
     cmd = f"""git -C {repo_dir} rev-list --count HEAD --since="{since}" --until="{until}" """
-    
+
     process = await asyncio.create_subprocess_shell(
         cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
     )
@@ -191,12 +189,7 @@ async def get_commits_in_range(
         logging.error(f"Error while executing command: {cmd}. Error: {error_message}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
-    return {
-        "remote": remote,
-        "since": since,
-        "until": until,
-        "num_commits": int(stdout)
-    }
+    return {"remote": remote, "since": since, "until": until, "num_commits": int(stdout)}
 
 
 @app.get("/reonboard-period")
@@ -213,7 +206,7 @@ async def reonboard_remote_period(
             detail="Incorrect bearer token",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     repo_dir = get_local_repo(remote, REPOS_DIR)
 
     if not os.path.exists(repo_dir):
@@ -227,7 +220,7 @@ async def reonboard_remote_period(
             timestamp = fin.read().strip()
         logging.info("Skipping %s, already running since %s", repo_name, timestamp)
         return {"message": f"Repository {repo_name} is already being processed since {timestamp}"}
-    
+
     bg_tasks.add_task(reonboard_repo, remote, since, until)
     return {"message": "Reonboarding started"}
 

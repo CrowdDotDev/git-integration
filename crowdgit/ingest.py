@@ -5,6 +5,7 @@ If called from the command line it expects one argument, the address of a remote
 It will prepare the activites (which will include either cloning it to ENV[REPO_DIR]
 if it has not been cloned yet) and send them to SQS.
 """
+import asyncio
 import os
 import json
 from datetime import datetime
@@ -21,6 +22,12 @@ from crowdgit.activity import prepare_crowd_activities
 from crowdgit.repo import get_repo_name, get_local_repo, REPOS_DIR, BAD_COMMITS_DIR
 
 from crowdgit.logger import get_logger
+
+from crowdgit.cm_maintainers_data.cm_database import (
+    batch_insert,
+    close_db_connections,
+    execute as db_execute,
+)
 
 logger = get_logger(__name__)
 
@@ -88,16 +95,16 @@ class Queue:
         """
         Initialise class to handle SQS requests.
         """
-        self.kafka_topic = os.environ['KAFKA_TOPIC']
+        self.kafka_topic = os.environ["KAFKA_TOPIC"]
         self.kafka_producer = Producer(
             {
-                'bootstrap.servers': os.environ['KAFKA_BROKERS'],
-                'client.id': 'git-integration',
-                **json.loads(os.environ['KAFKA_CONFIG']),
+                "bootstrap.servers": os.environ["KAFKA_BROKERS"],
+                "client.id": "git-integration",
+                **json.loads(os.environ["KAFKA_CONFIG"]),
             }
         )
 
-    def send_messages(
+    async def send_messages(
         self,
         segment_id: str,
         integration_id: str,
@@ -116,13 +123,17 @@ class Queue:
 
         operation = "upsert_activities_with_members"
 
-        def get_body_json(record):
+        data_to_insert = []
+        payloads_to_emit = []
+
+        def get_body_json(result_id, record):
             body = json.dumps(
                 {
                     "type": "create_and_process_activity_result",
                     "tenantId": os.environ["TENANT_ID"],
                     "segmentId": segment_id,
                     "integrationId": integration_id,
+                    "resultId": result_id,
                     "activityData": record,
                 },
                 default=string_converter,
@@ -142,6 +153,7 @@ class Queue:
                         "tenantId": os.environ["TENANT_ID"],
                         "segmentId": segment_id,
                         "integrationId": integration_id,
+                        "resultId": result_id,
                         "activityData": record,
                     },
                     default=string_converter,
@@ -151,6 +163,24 @@ class Queue:
 
             return body
 
+        for record in records:
+            result_id = str(uuid())
+            record["segmentId"] = segment_id
+
+            payloads_to_emit.append(get_body_json(result_id, record))
+            data_to_insert.append(
+                {
+                    "id": result_id,
+                    "state": "pending",
+                    "tenantId": os.environ["TENANT_ID"],
+                    "integrationId": integration_id,
+                    "data": {
+                        "type": "activity",
+                        "data": record,
+                    },
+                }
+            )
+
         platform = "git"
         responses = []
 
@@ -158,6 +188,14 @@ class Queue:
             commits_iter = tqdm.tqdm(records, desc="Processing records")
         else:
             commits_iter = records
+
+        await batch_insert(
+            """
+            insert into integration.results(id, state, data, "tenantId", "integrationId")
+            values($1, $2, $3, $4, $5)
+            """,
+            records,
+        )
 
         for record in commits_iter:
             deduplication_id = str(uuid())
@@ -170,7 +208,7 @@ class Queue:
 
         return responses
 
-    def ingest_remote(
+    async def ingest_remote(
         self,
         segment_id: str,
         integration_id: str,
@@ -206,7 +244,7 @@ class Queue:
             return
 
         try:
-            self.send_messages(segment_id, integration_id, activities, verbose=verbose)
+            await self.send_messages(segment_id, integration_id, activities, verbose=verbose)
         except Exception as e:
             logger.error("Failed trying to send messages for %s", remote, str(e))
         finally:
@@ -218,7 +256,7 @@ class Queue:
         return str(uuid())
 
 
-def main():
+async def ingest():
     import argparse
 
     parser = argparse.ArgumentParser(description="Ingest remote.")
@@ -285,7 +323,7 @@ def main():
                         logger.info("Bad commits for repo %s not found", remote)
 
                 logger.info(f"Ingesting {remote} for segment {segment_id} ")
-                queue.ingest_remote(
+                await queue.ingest_remote(
                     segment_id,
                     integration_id,
                     remote,
@@ -293,6 +331,16 @@ def main():
                     since=args.since,
                     until=args.until,
                 )
+
+
+async def run():
+    async with asyncio.TaskGroup() as tg:
+        tg.create_task(ingest())
+    await close_db_connections()
+
+
+def main():
+    asyncio.run(run())
 
 
 if __name__ == "__main__":
