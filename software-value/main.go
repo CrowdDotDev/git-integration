@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"os/exec"
@@ -30,12 +29,6 @@ func main() {
 	}
 	defer insightsDb.Close()
 
-	cmdb, err := NewCMDB(ctx, config.CMDatabase)
-	if err != nil {
-		log.Fatalf("Error connecting to CM database: %v", err)
-	}
-	defer cmdb.Close()
-
 	repoDirs, err := findRepositoriesDirectories(config.TargetPath)
 	if err != nil {
 		log.Fatalf("Error finding subdirectories: %v", err)
@@ -45,21 +38,18 @@ func main() {
 	var batch []SCCReport
 
 	for _, repoDir := range repoDirs {
+		fmt.Println("--------------------------------------------------")
+		fmt.Printf("Processing directory: %s\n", repoDir)
+
 		gitUrl, err := getGitRepositoryURL(repoDir)
 		if err != nil {
-			log.Printf("Could not get the git repository URL for '%s': %v", repoDir, err)
+			log.Printf("Could not get the git repository URL for '%s', skipping directory. Error: %v", repoDir, err)
 			continue
 		}
 
-		fileSizes, err := getFileSizes(repoDir)
-		if err != nil {
-			log.Printf("Error getting file sizes for '%s': %v", repoDir, err)
-			continue
-		}
+		fmt.Printf("Git URL: %s\n", gitUrl)
 
-		largeByteCount := calculateLargeByteThreshold(fileSizes)
-
-		report, err := getSCCReport(config.SCCPath, repoDir, largeByteCount)
+		report, err := getSCCReport(config.SCCPath, repoDir)
 		if err != nil {
 			log.Printf("Error processing repository '%s': %v", repoDir, err)
 			continue
@@ -68,14 +58,14 @@ func main() {
 
 		batch = append(batch, report)
 
-		fmt.Printf("Directory: %s", repoDir)
 		fmt.Printf("Estimated Cost in Dollars: %.2f\n", report.Cocomo.CostInDollars)
-		fmt.Printf("Git URL: %s\n\n", gitUrl)
 
 		if len(batch) >= batchSize {
 			saveBatch(ctx, insightsDb, batch)
 			batch = batch[:0]
 		}
+
+		fmt.Printf("--------------------------------------------------\n\n")
 	}
 	// Save any remaining reports
 	if len(batch) > 0 {
@@ -84,8 +74,8 @@ func main() {
 }
 
 // getSCCReport analyzes a directory with scc and returns a report containing the estimated cost and language statistics.
-func getSCCReport(sccPath, dirPath string, largeByteCount int64) (SCCReport, error) {
-	cost, err := getCost(sccPath, dirPath, largeByteCount)
+func getSCCReport(sccPath, dirPath string) (SCCReport, error) {
+	cost, err := getCost(sccPath, dirPath)
 	if err != nil {
 		return SCCReport{}, fmt.Errorf("error getting SCC report for '%s': %v\"", err)
 	}
@@ -97,17 +87,17 @@ func getSCCReport(sccPath, dirPath string, largeByteCount int64) (SCCReport, err
 
 	projectPath := filepath.Base(dirPath)
 
-	langStats, err := getLanguageStats(sccPath, dirPath, largeByteCount)
-	if err != nil {
-		return SCCReport{}, fmt.Errorf("error getting language stats for '%s': %v", dirPath, err)
-	}
+	//langStats, err := getLanguageStats(sccPath, dirPath)
+	//if err != nil {
+	//	return SCCReport{}, fmt.Errorf("error getting language stats for '%s': %v", dirPath, err)
+	//}
 
 	return SCCReport{
 		Repository: Repository{
 			Path: projectPath,
 		},
-		Cocomo:        Cocomo{CostInDollars: cost},
-		LanguageStats: langStats,
+		Cocomo: Cocomo{CostInDollars: cost},
+		//LanguageStats: langStats,
 	}, nil
 }
 
@@ -141,8 +131,8 @@ func getGitRepositoryURL(dirPath string) (string, error) {
 }
 
 // getCost runs the scc command and parses the output to get the estimated cost.
-func getCost(sccPathPath, repoPath string, largeByteCount int64) (float64, error) {
-	output, err := runSCC(sccPathPath, largeByteCount, "--format=short", repoPath)
+func getCost(sccPathPath, repoPath string) (float64, error) {
+	output, err := runSCC(sccPathPath, "--format=short", repoPath)
 	if err != nil {
 		return 0, fmt.Errorf("failed to run scc command: %w", err)
 	}
@@ -156,26 +146,23 @@ func getCost(sccPathPath, repoPath string, largeByteCount int64) (float64, error
 }
 
 // getLanguageStats runs the scc command and parses the output to get language statistics.
-func getLanguageStats(sccPathPath, repoPath string, largeByteCount int64) ([]LanguageStats, error) {
-	output, err := runSCC(sccPathPath, largeByteCount, "--format=json", repoPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to run scc command: %w", err)
-	}
-
-	var langStats []LanguageStats
-	if err := json.Unmarshal([]byte(output), &langStats); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal scc output to get language statistics: %w", err)
-	}
-
-	return langStats, nil
-}
+//func getLanguageStats(sccPathPath, repoPath string) ([]LanguageStats, error) {
+//	output, err := runSCC(sccPathPath, "--format=json", repoPath)
+//	if err != nil {
+//		return nil, fmt.Errorf("failed to run scc command: %w", err)
+//	}
+//
+//	var langStats []LanguageStats
+//	if err := json.Unmarshal([]byte(output), &langStats); err != nil {
+//		return nil, fmt.Errorf("failed to unmarshal scc output to get language statistics: %w", err)
+//	}
+//
+//	return langStats, nil
+//}
 
 // runSCC executes the scc command with the given arguments and returns the output.
-func runSCC(sccPathPath string, largeByteCount int64, args ...string) (string, error) {
-	allArgs := append([]string{"--no-large"}, args...)
-	if largeByteCount > 0 {
-		allArgs = append(allArgs, fmt.Sprintf("--large-byte-count=%d", largeByteCount))
-	}
+func runSCC(sccPathPath string, args ...string) (string, error) {
+	allArgs := append(args, "--no-large")
 
 	cmd := exec.Command(sccPathPath, allArgs...)
 	output, err := cmd.Output()
@@ -215,8 +202,9 @@ func saveBatch(ctx context.Context, db *InsightsDB, batch []SCCReport) {
 			log.Printf("Error saving project cost for '%s': %v", report.Repository, err)
 		}
 
-		if err := db.saveLanguageStats(ctx, report.Repository, report.LanguageStats); err != nil {
-			log.Printf("Error saving language stats for '%s': %v", report.Repository, err)
-		}
+		// For now, we're not saving language stats to the database. The following lines can be uncommented if needed.
+		//if err := db.saveLanguageStats(ctx, report.Repository, report.LanguageStats); err != nil {
+		//	log.Printf("Error saving language stats for '%s': %v", report.Repository, err)
+		//}
 	}
 }
