@@ -8,8 +8,29 @@ logger = get_logger(__name__)
 
 load_dotenv()
 
+_read_conn = None
+_write_conn = None
+
+
+async def close_db_connections():
+    global _read_conn, _write_conn
+
+    logger.info("Closing database connections")
+
+    if _read_conn:
+        await _read_conn.close()
+    if _write_conn:
+        await _write_conn.close()
+
 
 async def get_db_connection(is_read_operation: bool = True):
+    global _read_conn, _write_conn
+
+    if is_read_operation and _read_conn:
+        return _read_conn
+    elif not is_read_operation and _write_conn:
+        return _write_conn
+
     db_params = {
         "database": os.getenv("DB_DATABASE"),
         "user": os.getenv("DB_USER"),
@@ -30,17 +51,20 @@ async def get_db_connection(is_read_operation: bool = True):
         raise ValueError(
             f"The following environment variables are not set: {', '.join(missing_env_vars)}"
         )
-    return await asyncpg.connect(**db_params)
+
+    if is_read_operation:
+        _read_conn = await asyncpg.connect(**db_params)
+        return _read_conn
+    else:
+        _write_conn = await asyncpg.connect(**db_params)
+        return _write_conn
 
 
 async def query(sql: str, params: tuple = None) -> List[Dict[str, Any]]:
     try:
         conn = await get_db_connection(is_read_operation=True)
-        try:
-            results = await conn.fetch(sql, *params) if params else await conn.fetch(sql)
-            return [dict(row) for row in results]
-        finally:
-            await conn.close()
+        results = await conn.fetch(sql, *params) if params else await conn.fetch(sql)
+        return [dict(row) for row in results]
     except Exception as error:
         logger.error(f"Error executing query: {error}")
         raise
@@ -49,10 +73,18 @@ async def query(sql: str, params: tuple = None) -> List[Dict[str, Any]]:
 async def execute(sql: str, params: tuple = None) -> None:
     try:
         conn = await get_db_connection(is_read_operation=False)
-        try:
-            await conn.execute(sql, *params) if params else await conn.execute(sql)
-        finally:
-            await conn.close()
+        await conn.execute(sql, *params) if params else await conn.execute(sql)
     except Exception as error:
         logger.error(f"Error executing query: {error}")
+        raise
+
+
+async def batch_insert(sql: str, records: List[Any], batch_size=100) -> None:
+    try:
+        conn = await get_db_connection(is_read_operation=False)
+        for i in range(0, len(records), batch_size):
+            batch = records[i : i + batch_size]
+            await conn.executemany(sql, batch)
+    except Exception as error:
+        logger.error(f"Error executing batch insert: {error}")
         raise
